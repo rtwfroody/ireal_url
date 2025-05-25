@@ -1,3 +1,5 @@
+// Reference: https://www.irealpro.com/ireal-pro-custom-chord-chart-protocol
+
 use std::fmt;
 
 use nom::IResult;
@@ -16,6 +18,11 @@ pub struct Bar {
     pub elements : Vec<BarElement>
 }
 
+#[derive(Debug)]
+pub struct SimpleBar {
+    pub chords : Vec<Chord>
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Music {
     pub repeat_start : Option<usize>,
@@ -27,7 +34,8 @@ pub struct Music {
 pub enum BarElement {
     SectionMarker(String),
     TimeSignature(u32, u32),
-    Chord(Chord)
+    Chord(Chord),
+    AlternateChord(Chord),
 }
 
 impl fmt::Display for BarElement {
@@ -35,41 +43,52 @@ impl fmt::Display for BarElement {
         match self {
             BarElement::SectionMarker(s) => s.fmt(f),
             BarElement::TimeSignature(n, d) => format!("{}:{}", n, d).fmt(f),
-            BarElement::Chord(c) => c.fmt(f)
+            BarElement::Chord(c) => c.fmt(f),
+            BarElement::AlternateChord(c) => {
+                format!("({})", c).fmt(f)
+            },
         }
     }
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct Chord {
-    pub root : Note,
-    pub flavor : Flavor,
-    pub altered_notes : Vec<AlteredNotes>,
-    pub bass_note : Option<Note>
+pub enum Chord {
+    NC,
+    Some {
+        root: Note,
+        flavor: Flavor,
+        altered_notes: Vec<AlteredNotes>,
+        bass_note: Option<Note>,
+    }
 }
 
 impl Chord {
     pub fn basic(root: Note, flavor: Flavor) -> Self {
-        Chord {
+        Chord::Some {
             root,
             flavor,
-            altered_notes : vec![],
-            bass_note : None,
+            altered_notes: vec![],
+            bass_note: None,
         }
     }
 }
 
 impl fmt::Display for Chord {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}{}{}{}",
-            self.root,
-            self.flavor,
-            self.altered_notes.iter().map(|x| x.to_string()).collect::<String>(),
-            match &self.bass_note {
-                Some(note) => format!("/{}", note),
-                None => "".to_string()
+        match self {
+            Chord::NC => write!(f, "N.C."),
+            Chord::Some { root, flavor, altered_notes, bass_note } => {
+                write!(f, "{}{}{}{}",
+                    root,
+                    flavor,
+                    altered_notes.iter().map(|x| x.to_string()).collect::<String>(),
+                    match &bass_note {
+                        Some(note) => format!("/{}", note),
+                        None => "".to_string()
+                    }
+                )
             }
-        )
+        }
     }
 }
 
@@ -81,12 +100,11 @@ impl fmt::Debug for Chord {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Token {
-    Alternate(String), // These show up above the regular music.
+    AlternateChord(Chord), // These show up above the regular music.
     Bar,
     Blank,
     Chord(Chord),
     Coda,
-    Comma,
     Comment(String), // There is some stuff inside the comment that we could probably parse.
     DoubleBarEnd,
     DoubleBarStart,
@@ -104,13 +122,17 @@ pub enum Token {
     Segno,
     TimeSignature(u32, u32),
     VerticalSpace,
+    Fermata,
 
     // Seems to be used when there is one chord per note.
     Squeeze,
 
-    // TODO: What are these for?
+    // TODO: What is this for?
     SmallL,
-    SmallF,
+
+    // I think this is like in BiaB. Comma is to put two chords in the first
+    // half of a measure, and space is just to have one chord in each half.
+    Comma,
     Space
 }
 
@@ -265,8 +287,8 @@ fn comment<'a>() -> impl FnMut(&'a str) -> IResult<&'a str, Token> {
 }
 
 fn alternate<'a>() -> impl FnMut(&'a str) -> IResult<&'a str, Token> {
-    map(tuple((tag("("), take_until(")"), tag(")"))),
-        |x : (&str, &str, &str)| Token::Alternate(x.1.to_string()))
+    map(tuple((tag("("), chord(), tag(")"))),
+        |x : (&str, Chord, &str)| Token::AlternateChord(x.1))
 }
 
 fn note<'a>() -> impl FnMut(&'a str) -> IResult<&'a str, Note> {
@@ -349,20 +371,33 @@ fn over<'a>() -> impl FnMut(&'a str) -> IResult<&'a str, Option<Note>> {
     ))
 }
 
-fn chord<'a>() -> impl FnMut(&'a str) -> IResult<&'a str, Token> {
+fn chord<'a>() -> impl FnMut(&'a str) -> IResult<&'a str, Chord> {
     alt((
-        map( tag("n"), |_| Token::NoChord),
+        map( tag("n"), |_| Chord::NC),
         map(tuple((note(), flavor(), altered_notes(), over())),
-            |x| Token::Chord(
-                Chord {
+            |x| 
+                Chord::Some {
                     root: x.0,
                     flavor: x.1,
                     altered_notes: x.2,
                     bass_note: x.3
                 }))
-    ))
+    )
 }
 
+fn chord_token<'a>() -> impl FnMut(&'a str) -> IResult<&'a str, Token> {
+    alt((
+        map( tag("n"), |_| Token::Chord(Chord::NC)),
+        map(tuple((note(), flavor(), altered_notes(), over())),
+            |x| Token::Chord (
+                Chord::Some {
+                    root: x.0,
+                    flavor: x.1,
+                    altered_notes: x.2,
+                    bass_note: x.3
+                })))
+    )
+}
 fn time_signature<'a>() -> impl FnMut(&'a str) -> IResult<&'a str, Token> {
     /* The only signatures in jazz1400 are: T24, T34, T44, T54, T64. */
     /* Assume top number can be multiple digits, and the bottom number is a
@@ -394,7 +429,7 @@ fn control<'a>() -> impl FnMut(&'a str) -> IResult<&'a str, Token>
             map(tag("p"), |_| Token::PauseSlash),
             map(tag("U"), |_| Token::EndingMeasure),
             map(tag("l"), |_| Token::SmallL),
-            map(tag("f"), |_| Token::SmallF),
+            map(tag("f"), |_| Token::Fermata),
             map(tag(" "), |_| Token::Space),
     ))
 }
@@ -417,7 +452,7 @@ fn parse_tokens(input : &str) -> IResult<&str, Vec<Token>>
 {
     many0(
         alt((
-            chord(),
+            chord_token(),
             bar(),
             control(),
             comment(),
@@ -463,8 +498,10 @@ pub fn tokenize_music(text : &str) -> Result<Music, String>
                 let last_bar = bars.last().unwrap();
                 bar = last_bar.clone();
             },
-            // Ignore other tokens for now
-            _ => ()
+            Token::AlternateChord(chord) => {
+                bar.elements.push(BarElement::AlternateChord(chord));
+            },
+            ignore => println!("Ignoring token: {:?}", ignore),
         }
     }
     Ok(Music {

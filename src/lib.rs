@@ -1,4 +1,5 @@
 mod tokenize;
+use tokenize::SimpleBar;
 pub use tokenize::{
     Bar,
     BarElement,
@@ -139,6 +140,25 @@ impl Song {
             repeats: parts[9].to_string()
         }
     }
+
+    // Just turn this into a sequence of Chords
+    fn expand(&self) -> Vec<SimpleBar> {
+        self.music.bars.iter()
+            .map(|bar| {
+                SimpleBar {
+                    chords: bar.elements.iter()
+                        .filter_map(|el| {
+                            if let BarElement::Chord(chord) = el {
+                                Some(chord.clone())
+                            } else {
+                                None
+                            }
+                        })
+                        .collect(),
+                }
+            })
+            .collect()
+    }
 }
 
 /* See https://loophole-letters.vercel.app/ireal-changes */
@@ -184,7 +204,7 @@ mod tests {
 
         #[allow(non_snake_case)]
         let Ab7b9s5 = BarElement::Chord(
-            Chord {
+            Chord::Some {
                 root: Note::AFlat,
                 flavor: Flavor::Dominant(Some(Number::Seven)),
                 altered_notes: vec![AlteredNotes::Flat(Number::Nine), AlteredNotes::Sharp(Number::Five)],
@@ -194,7 +214,7 @@ mod tests {
 
         #[allow(non_snake_case)]
         let A7 = BarElement::Chord(
-            Chord {
+            Chord::Some {
                 root: Note::A,
                 flavor: Flavor::Dominant(Some(Number::Seven)),
                 altered_notes: vec![],
@@ -204,7 +224,7 @@ mod tests {
 
         #[allow(non_snake_case)]
         let C7b5 = BarElement::Chord(
-            Chord {
+            Chord::Some {
                 root: Note::C,
                 flavor: Flavor::Dominant(Some(Number::Seven)),
                 altered_notes: vec![AlteredNotes::Flat(Number::Five)],
@@ -214,7 +234,7 @@ mod tests {
 
         #[allow(non_snake_case)]
         let Ch7= BarElement::Chord(
-            Chord {
+            Chord::Some {
                 root: Note::C,
                 flavor: Flavor::HalfDiminished(Some(Number::Seven)),
                 altered_notes: vec![],
@@ -224,7 +244,7 @@ mod tests {
 
         #[allow(non_snake_case)]
         let Db7 = BarElement::Chord(
-            Chord {
+            Chord::Some {
                 root: Note::DFlat,
                 flavor: Flavor::Dominant(Some(Number::Seven)),
                 altered_notes: vec![],
@@ -234,7 +254,7 @@ mod tests {
 
         #[allow(non_snake_case)]
         let D7 = BarElement::Chord(
-            Chord {
+            Chord::Some {
                 root: Note::D,
                 flavor: Flavor::Dominant(Some(Number::Seven)),
                 altered_notes: vec![],
@@ -244,7 +264,7 @@ mod tests {
 
         #[allow(non_snake_case)]
         let D7sus = BarElement::Chord(
-            Chord {
+            Chord::Some {
                 root: Note::D,
                 flavor: Flavor::Dominant(Some(Number::Seven)),
                 altered_notes: vec![AlteredNotes::Sus],
@@ -254,7 +274,7 @@ mod tests {
 
         #[allow(non_snake_case)]
         let Eb7 = BarElement::Chord(
-            Chord {
+            Chord::Some {
                 root: Note::EFlat,
                 flavor: Flavor::Dominant(Some(Number::Seven)),
                 altered_notes: vec![],
@@ -264,7 +284,7 @@ mod tests {
 
         #[allow(non_snake_case)]
         let E7 = BarElement::Chord(
-            Chord {
+            Chord::Some {
                 root: Note::E,
                 flavor: Flavor::Dominant(Some(Number::Seven)),
                 altered_notes: vec![],
@@ -274,7 +294,7 @@ mod tests {
 
         #[allow(non_snake_case)]
         let F7 = BarElement::Chord(
-            Chord {
+            Chord::Some {
                 root: Note::F,
                 flavor: Flavor::Dominant(Some(Number::Seven)),
                 altered_notes: vec![],
@@ -284,7 +304,7 @@ mod tests {
 
         #[allow(non_snake_case)]
         let Gb7 = BarElement::Chord(
-            Chord {
+            Chord::Some {
                 root: Note::GFlat,
                 flavor: Flavor::Dominant(Some(Number::Seven)),
                 altered_notes: vec![],
@@ -294,7 +314,7 @@ mod tests {
 
         #[allow(non_snake_case)]
         let G = BarElement::Chord(
-            Chord {
+            Chord::Some {
                 root: Note::G,
                 flavor: Flavor::Dominant(None),
                 altered_notes: vec![],
@@ -304,7 +324,7 @@ mod tests {
 
         #[allow(non_snake_case)]
         let G7b5 = BarElement::Chord(
-            Chord {
+            Chord::Some {
                 root: Note::G,
                 flavor: Flavor::Dominant(Some(Number::Seven)),
                 altered_notes: vec![AlteredNotes::Flat(Number::Five)],
