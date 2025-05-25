@@ -158,7 +158,6 @@ pub fn parse_url(mut text : &str) -> Result<Collection, String> {
                 "No Title"
             };
     let songs = parts.into_iter()
-            .take(400)   // <<< TODO: remove
             .map(Song::from_text)
             .collect();
     Ok(Collection{

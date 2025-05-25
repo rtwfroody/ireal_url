@@ -1,5 +1,5 @@
 [package]
-name = "ireal_url"
+name = "ireal-url"
 version = "0.1.0"
 edition = "2021"
 authors = ["Tim Newsome <tim@casualhacker.net>"]

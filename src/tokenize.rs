@@ -309,7 +309,7 @@ fn number<'a>() -> impl FnMut(&'a str) -> IResult<&'a str, Number> {
 
 fn number_option<'a>() -> impl FnMut(&'a str) -> IResult<&'a str, Option<Number>> {
     alt((
-        map(number(), |x| Some(x)),
+        map(number(), Some),
         map(tag(""), |_| None),
     ))
 }
@@ -326,7 +326,7 @@ fn flavor<'a>() -> impl FnMut(&'a str) -> IResult<&'a str, Flavor> {
         map(tuple((tag("o^"), number_option())), |x| Flavor::DiminishedMajor(x.1)),
         map(tuple((tag("o"), number_option())), |x| Flavor::Diminished(x.1)),
         map(tuple((tag("+"), number_option())), |x| Flavor::Augmented(x.1)),
-        map(number_option(), |x| Flavor::Dominant(x))
+        map(number_option(), Flavor::Dominant)
     ))
 }
 
@@ -377,7 +377,7 @@ fn time_signature<'a>() -> impl FnMut(&'a str) -> IResult<&'a str, Token> {
     })
 }
 
-fn control<'a>() -> impl FnMut(&'a str) -> IResult<&str, Token>
+fn control<'a>() -> impl FnMut(&'a str) -> IResult<&'a str, Token>
 {
     alt((
             map(tag("{"), |_| Token::RepeatStart),
@@ -399,7 +399,7 @@ fn control<'a>() -> impl FnMut(&'a str) -> IResult<&str, Token>
     ))
 }
 
-fn bar<'a>() -> impl FnMut(&'a str) -> IResult<&str, Token>
+fn bar<'a>() -> impl FnMut(&'a str) -> IResult<&'a str, Token>
 {
     alt((
             map(tag("||"), |_| Token::Bar),
@@ -443,7 +443,7 @@ pub fn tokenize_music(text : &str) -> Result<Music, String>
                 bar.elements.push(BarElement::Chord(c));
             },
             Token::RepeatMeasure => {
-                if bars.len() == 0 {
+                if bars.is_empty() {
                     return Err("Repeat measure at beginning of song".to_string());
                 }
                 let last_bar = bars.last().unwrap();
