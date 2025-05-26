@@ -1,5 +1,4 @@
 mod tokenize;
-use tokenize::SimpleBar;
 pub use tokenize::{
     Bar,
     BarElement,
@@ -59,7 +58,7 @@ fn decode_music(text : &str) -> Result<Music, String> {
         return Err(format!("Music doesn't start with {}", MUSIC_PREFIX));
     }
     let unscrambled = unscramble(&text[MUSIC_PREFIX.len()..]);
-    tokenize::tokenize_music(unscrambled.as_str())
+    tokenize::parse_music(unscrambled.as_str())
 }
 
 fn hex_digit_value(ch : char) -> Result<u32, String> {
@@ -142,6 +141,7 @@ impl Song {
     }
 
     // Just turn this into a sequence of Chords
+    /*
     fn expand(&self) -> Vec<SimpleBar> {
         self.music.bars.iter()
             .map(|bar| {
@@ -159,6 +159,7 @@ impl Song {
             })
             .collect()
     }
+    */
 }
 
 /* See https://loophole-letters.vercel.app/ireal-changes */
@@ -187,11 +188,10 @@ pub fn parse_url(mut text : &str) -> Result<Collection, String> {
 
 #[cfg(test)]
 mod tests {
-    use nom::branch::Alt;
-
     use crate::tokenize::AlteredNotes;
 
     use super::*;
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn work() {
@@ -347,33 +347,32 @@ mod tests {
                             [*BD7sus G7b5LZG7b5XyQ|C7b5XyQKcl LZCh7XyQ|F7XyQ|E7 A7LZAb7b9#5XyQ]\
                             [*CDb7XyQKcl LZGb7XyQKcl LZF7 E7LZEb7XyQ|D7XyQKcl Q ZY|QGXyQZ ".to_string(),
                         bars: vec![
-                            Bar { elements: vec![Db7.clone()] },
-                            Bar { elements: vec![Db7.clone()] },
-                            Bar { elements: vec![Gb7.clone()] },
-                            Bar { elements: vec![Gb7.clone()] },
-                            Bar { elements: vec![F7.clone(), E7.clone()] },
-                            Bar { elements: vec![Eb7.clone()] },
-                            Bar { elements: vec![D7.clone()] },
-                            Bar { elements: vec![D7.clone()] },
-                            Bar { elements: vec![D7sus.clone(), G7b5.clone()] },
-                            Bar { elements: vec![G7b5.clone()] },
-                            Bar { elements: vec![C7b5.clone()] },
-                            Bar { elements: vec![C7b5.clone()] },
-                            Bar { elements: vec![Ch7.clone()] },
-                            Bar { elements: vec![F7.clone()] },
-                            Bar { elements: vec![E7.clone(), A7.clone()] },
-                            Bar { elements: vec![Ab7b9s5.clone()] },
-                            Bar { elements: vec![Db7.clone()] },
-                            Bar { elements: vec![Db7.clone()] },
-                            Bar { elements: vec![Gb7.clone()] },
-                            Bar { elements: vec![Gb7.clone()] },
-                            Bar { elements: vec![F7.clone(), E7.clone()] },
-                            Bar { elements: vec![Eb7.clone()] },
-                            Bar { elements: vec![D7.clone()] },
-                            Bar { elements: vec![D7.clone()] },
-                            Bar { elements: vec![] },
-                            Bar { elements: vec![G.clone()] },
-                    ]
+                            Bar::from_counts(&[vec![Db7.clone()], vec![], vec![], vec![]]),
+                            Bar::from_counts(&[vec![Db7.clone()], vec![], vec![], vec![]]),
+                            Bar::from_counts(&[vec![Gb7.clone()], vec![], vec![], vec![]]),
+                            Bar::from_counts(&[vec![Gb7.clone()], vec![], vec![], vec![]]),
+                            Bar::from_counts(&[vec![F7.clone()], vec![], vec![E7.clone()], vec![]]),
+                            Bar::from_counts(&[vec![Eb7.clone()], vec![], vec![], vec![]]),
+                            Bar::from_counts(&[vec![D7.clone()], vec![], vec![], vec![]]),
+                            Bar::from_counts(&[vec![D7.clone()], vec![], vec![], vec![]]),
+                            Bar::from_counts(&[vec![D7sus.clone()], vec![], vec![G7b5.clone()], vec![]]),
+                            Bar::from_counts(&[vec![G7b5.clone()], vec![], vec![], vec![]]),
+                            Bar::from_counts(&[vec![C7b5.clone()], vec![], vec![], vec![]]),
+                            Bar::from_counts(&[vec![C7b5.clone()], vec![], vec![], vec![]]),
+                            Bar::from_counts(&[vec![Ch7.clone()], vec![], vec![], vec![]]),
+                            Bar::from_counts(&[vec![F7.clone()], vec![], vec![], vec![]]),
+                            Bar::from_counts(&[vec![E7.clone()], vec![], vec![A7.clone()], vec![]]),
+                            Bar::from_counts(&[vec![Ab7b9s5.clone()], vec![], vec![], vec![]]),
+                            Bar::from_counts(&[vec![Db7.clone()], vec![], vec![], vec![]]),
+                            Bar::from_counts(&[vec![Db7.clone()], vec![], vec![], vec![]]),
+                            Bar::from_counts(&[vec![Gb7.clone()], vec![], vec![], vec![]]),
+                            Bar::from_counts(&[vec![Gb7.clone()], vec![], vec![], vec![]]),
+                            Bar::from_counts(&[vec![F7.clone()], vec![], vec![E7.clone()], vec![]]),
+                            Bar::from_counts(&[vec![Eb7.clone()], vec![], vec![], vec![]]),
+                            Bar::from_counts(&[vec![D7.clone()], vec![], vec![], vec![]]),
+                            Bar::from_counts(&[vec![D7.clone()], vec![], vec![], vec![]]),
+                            Bar::from_counts(&[vec![G.clone()], vec![], vec![], vec![]]),
+                        ]
             }, comp_style: "".to_string(), bpm: 0, repeats: "0".to_string() }]
         });
     }

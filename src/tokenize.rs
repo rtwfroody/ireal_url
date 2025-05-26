@@ -15,12 +15,20 @@ use nom::multi::many0;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Bar {
-    pub elements : Vec<BarElement>
+    pub counts: Box<[Vec<BarElement>]>
 }
 
-#[derive(Debug)]
-pub struct SimpleBar {
-    pub chords : Vec<Chord>
+impl Bar {
+    pub fn new(count_count: u32) -> Self {
+        let counts = vec![vec![]; count_count as usize];
+        Bar { counts: counts.into_boxed_slice() }
+    }
+
+    pub fn from_counts(counts: &[Vec<BarElement>]) -> Self {
+        let counts: Vec<_> = counts.iter().cloned().collect();
+        let counts = counts.into_boxed_slice();
+        Bar { counts }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -31,9 +39,21 @@ pub struct Music {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TimeSignature {
+    pub top: u32,
+    pub bottom: u32
+}
+
+impl fmt::Display for TimeSignature {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "T{}{}", self.top, self.bottom)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BarElement {
     SectionMarker(String),
-    TimeSignature(u32, u32),
+    TimeSignature(TimeSignature),
     Chord(Chord),
     AlternateChord(Chord),
 }
@@ -42,7 +62,7 @@ impl fmt::Display for BarElement {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             BarElement::SectionMarker(s) => s.fmt(f),
-            BarElement::TimeSignature(n, d) => format!("{}:{}", n, d).fmt(f),
+            BarElement::TimeSignature(ts) => ts.fmt(f),
             BarElement::Chord(c) => c.fmt(f),
             BarElement::AlternateChord(c) => {
                 format!("({})", c).fmt(f)
@@ -110,7 +130,6 @@ pub enum Token {
     DoubleBarStart,
     EndingMeasure,
     FinalBar,
-    NoChord,
     NumberedEnding(String),
     PauseSlash,
     RepeatEnd,
@@ -398,6 +417,7 @@ fn chord_token<'a>() -> impl FnMut(&'a str) -> IResult<&'a str, Token> {
                 })))
     )
 }
+
 fn time_signature<'a>() -> impl FnMut(&'a str) -> IResult<&'a str, Token> {
     /* The only signatures in jazz1400 are: T24, T34, T44, T54, T64. */
     /* Assume top number can be multiple digits, and the bottom number is a
@@ -464,25 +484,43 @@ fn parse_tokens(input : &str) -> IResult<&str, Vec<Token>>
     )(input)
 }
 
-pub fn tokenize_music(text : &str) -> Result<Music, String>
+pub fn parse_music(text : &str) -> Result<Music, String>
 {
     let mut bars = vec![];
-    let mut bar = Bar{elements : vec![]};
+    let mut time_signature = TimeSignature {top: 4, bottom:4}; // Default time signature
+    let mut bar = None;
+    let mut count = 0;
     for token in all_consuming(parse_tokens)(text).unwrap().1 {
         match token {
             Token::Bar | Token::FinalBar | Token::DoubleBarEnd | Token::RepeatEnd => {
-                bars.push(bar);
-                bar = Bar{elements : vec![]};
+                if bar.is_some() {
+                    bars.push(bar.unwrap());
+                    bar = None;
+                    count = 0;
+                }
             },
             Token::Chord(c) => {
-                bar.elements.push(BarElement::Chord(c));
+                if bar.is_none() {
+                    bar = Some(Bar::new(time_signature.top));
+                    count = 0;
+                }
+                bar.as_mut().unwrap().counts[count].push(BarElement::Chord(c));
+                count += 1;
+            },
+            Token::AlternateChord(c) => {
+                if bar.is_none() {
+                    bar = Some(Bar::new(time_signature.top));
+                    count = 0;
+                }
+                bar.as_mut().unwrap().counts[count].push(BarElement::AlternateChord(c));
             },
             Token::RepeatMeasure => {
                 if bars.is_empty() {
                     return Err("Repeat measure at beginning of song".to_string());
                 }
                 let last_bar = bars.last().unwrap();
-                bar = last_bar.clone();
+                bar = Some(last_bar.clone());
+                count = 0;
             },
             Token::RepeatTwoMeasures => {
                 if bars.len() < 2 {
@@ -491,15 +529,23 @@ pub fn tokenize_music(text : &str) -> Result<Music, String>
                 let a = bars[bars.len() - 2].clone();
                 let b = bars[bars.len() - 1].clone();
                 bars.push(a);
-                bar = b.clone()
+                bar = Some(b.clone());
+                count = 0;
             },
             Token::BarAndRepeat => {
-                bars.push(bar);
+                if bar.is_some() {
+                    bars.push(bar.unwrap());
+                }
                 let last_bar = bars.last().unwrap();
-                bar = last_bar.clone();
+                bar = Some(last_bar.clone());
+                count = 0;
             },
-            Token::AlternateChord(chord) => {
-                bar.elements.push(BarElement::AlternateChord(chord));
+            Token::Space => {
+                if bar.is_none() {
+                    bar = Some(Bar::new(time_signature.top));
+                    count = 0;
+                }
+                count += 1;
             },
             ignore => println!("Ignoring token: {:?}", ignore),
         }
