@@ -25,7 +25,7 @@ impl Bar {
     }
 
     pub fn from_counts(counts: &[Vec<BarElement>]) -> Self {
-        let counts: Vec<_> = counts.iter().cloned().collect();
+        let counts: Vec<_> = counts.to_vec();
         let counts = counts.into_boxed_slice();
         Bar { counts }
     }
@@ -533,8 +533,8 @@ pub fn parse_music(text : &str) -> Result<Music, String>
                 count = 0;
             },
             Token::BarAndRepeat => {
-                if bar.is_some() {
-                    bars.push(bar.unwrap());
+                if let Some(unwrapped_bar) = bar {
+                    bars.push(unwrapped_bar);
                 }
                 let last_bar = bars.last().unwrap();
                 bar = Some(last_bar.clone());
