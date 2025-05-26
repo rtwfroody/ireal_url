@@ -2,26 +2,28 @@
 
 use std::fmt;
 
-use nom::IResult;
-use nom::bytes::complete::take;
+use nom::branch::alt;
 use nom::bytes::complete::tag;
+use nom::bytes::complete::take;
 use nom::bytes::complete::take_until;
 use nom::character::complete::digit1;
 use nom::combinator::all_consuming;
-use nom::sequence::tuple;
-use nom::branch::alt;
 use nom::combinator::map;
 use nom::multi::many0;
+use nom::sequence::tuple;
+use nom::IResult;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Bar {
-    pub counts: Box<[Vec<BarElement>]>
+    pub counts: Box<[Vec<BarElement>]>,
 }
 
 impl Bar {
     pub fn new(count_count: u32) -> Self {
         let counts = vec![vec![]; count_count as usize];
-        Bar { counts: counts.into_boxed_slice() }
+        Bar {
+            counts: counts.into_boxed_slice(),
+        }
     }
 
     pub fn from_counts(counts: &[Vec<BarElement>]) -> Self {
@@ -33,15 +35,15 @@ impl Bar {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Music {
-    pub repeat_start : Option<usize>,
-    pub raw : String,
-    pub bars : Vec<Bar>
+    pub repeat_start: Option<usize>,
+    pub raw: String,
+    pub bars: Vec<Bar>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TimeSignature {
     pub top: u32,
-    pub bottom: u32
+    pub bottom: u32,
 }
 
 impl fmt::Display for TimeSignature {
@@ -64,9 +66,7 @@ impl fmt::Display for BarElement {
             BarElement::SectionMarker(s) => s.fmt(f),
             BarElement::TimeSignature(ts) => ts.fmt(f),
             BarElement::Chord(c) => c.fmt(f),
-            BarElement::AlternateChord(c) => {
-                format!("({})", c).fmt(f)
-            },
+            BarElement::AlternateChord(c) => format!("({})", c).fmt(f),
         }
     }
 }
@@ -79,7 +79,7 @@ pub enum Chord {
         flavor: Flavor,
         altered_notes: Vec<AlteredNotes>,
         bass_note: Option<Note>,
-    }
+    },
 }
 
 impl Chord {
@@ -97,14 +97,24 @@ impl fmt::Display for Chord {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Chord::NC => write!(f, "N.C."),
-            Chord::Some { root, flavor, altered_notes, bass_note } => {
-                write!(f, "{}{}{}{}",
+            Chord::Some {
+                root,
+                flavor,
+                altered_notes,
+                bass_note,
+            } => {
+                write!(
+                    f,
+                    "{}{}{}{}",
                     root,
                     flavor,
-                    altered_notes.iter().map(|x| x.to_string()).collect::<String>(),
+                    altered_notes
+                        .iter()
+                        .map(|x| x.to_string())
+                        .collect::<String>(),
                     match &bass_note {
                         Some(note) => format!("/{}", note),
-                        None => "".to_string()
+                        None => "".to_string(),
                     }
                 )
             }
@@ -152,20 +162,31 @@ pub enum Token {
     // I think this is like in BiaB. Comma is to put two chords in the first
     // half of a measure, and space is just to have one chord in each half.
     Comma,
-    Space
+    Space,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Note {
-    AFlat, A, ASharp,
-    BFlat, B,
-    CFlat, C, CSharp,
-    DFlat, D, DSharp,
-    EFlat, E,
-    F, FSharp,
-    GFlat, G, GSharp,
+    AFlat,
+    A,
+    ASharp,
+    BFlat,
+    B,
+    CFlat,
+    C,
+    CSharp,
+    DFlat,
+    D,
+    DSharp,
+    EFlat,
+    E,
+    F,
+    FSharp,
+    GFlat,
+    G,
+    GSharp,
     // Indicates no note? Used as in "W/C" which visually just shows "/C"
-    W
+    W,
 }
 
 impl fmt::Display for Note {
@@ -189,14 +210,22 @@ impl fmt::Display for Note {
             Note::GFlat => "Gb",
             Note::G => "G",
             Note::GSharp => "G#",
-            Note::W => "W"
-        }.fmt(f)
+            Note::W => "W",
+        }
+        .fmt(f)
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Number {
-    Two, Three, Five, Six, Seven, Nine, Eleven, Thirteen
+    Two,
+    Three,
+    Five,
+    Six,
+    Seven,
+    Nine,
+    Eleven,
+    Thirteen,
 }
 
 impl fmt::Display for Number {
@@ -209,8 +238,9 @@ impl fmt::Display for Number {
             Number::Seven => "7",
             Number::Nine => "9",
             Number::Eleven => "11",
-            Number::Thirteen => "13"
-        }.fmt(f)
+            Number::Thirteen => "13",
+        }
+        .fmt(f)
     }
 }
 
@@ -225,7 +255,7 @@ pub enum Flavor {
     Dominant(Option<Number>),
     Major(Option<Number>),
     SixthNinth,
-    MinorSixthNinth
+    MinorSixthNinth,
 }
 
 impl fmt::Display for Flavor {
@@ -233,39 +263,40 @@ impl fmt::Display for Flavor {
         match self {
             Flavor::Augmented(n) => match n {
                 Some(n) => format!("+{}", n),
-                None => "+".to_string()
+                None => "+".to_string(),
             },
             Flavor::Diminished(n) => match n {
                 Some(n) => format!("o{}", n),
-                None => "o".to_string()
+                None => "o".to_string(),
             },
             Flavor::DiminishedMajor(n) => match n {
                 Some(n) => format!("o^{}", n),
-                None => "o^".to_string()
+                None => "o^".to_string(),
             },
             Flavor::HalfDiminished(n) => match n {
                 Some(n) => format!("h{}", n),
-                None => "h".to_string()
+                None => "h".to_string(),
             },
             Flavor::Minor(n) => match n {
                 Some(n) => format!("-{}", n),
-                None => "-".to_string()
+                None => "-".to_string(),
             },
             Flavor::MinorMajor(n) => match n {
                 Some(n) => format!("-^{}", n),
-                None => "-^".to_string()
+                None => "-^".to_string(),
             },
             Flavor::Dominant(n) => match n {
                 Some(n) => format!("{}", n),
-                None => "".to_string()
+                None => "".to_string(),
             },
             Flavor::Major(n) => match n {
                 Some(n) => format!("^{}", n),
-                None => "^".to_string()
+                None => "^".to_string(),
             },
             Flavor::SixthNinth => "69".to_string(),
-            Flavor::MinorSixthNinth => "m69".to_string()
-        }.fmt(f)
+            Flavor::MinorSixthNinth => "m69".to_string(),
+        }
+        .fmt(f)
     }
 }
 
@@ -275,7 +306,7 @@ pub enum AlteredNotes {
     Sharp(Number),
     Add(Number),
     Sus,
-    Alt
+    Alt,
 }
 
 impl fmt::Display for AlteredNotes {
@@ -285,29 +316,36 @@ impl fmt::Display for AlteredNotes {
             AlteredNotes::Sharp(n) => format!("#{}", n),
             AlteredNotes::Add(n) => format!("add{}", n),
             AlteredNotes::Sus => "sus".to_string(),
-            AlteredNotes::Alt => "alt".to_string()
-        }.fmt(f)
+            AlteredNotes::Alt => "alt".to_string(),
+        }
+        .fmt(f)
     }
 }
 
 fn section_marker<'a>() -> impl FnMut(&'a str) -> IResult<&'a str, Token> {
-    map(tuple((tag("*"), take(1usize))),
-        |x : (&str, &str)| Token::SectionMarker(x.1.to_string()))
+    map(tuple((tag("*"), take(1usize))), |x: (&str, &str)| {
+        Token::SectionMarker(x.1.to_string())
+    })
 }
 
 fn numbered_ending<'a>() -> impl FnMut(&'a str) -> IResult<&'a str, Token> {
-    map(tuple((tag("N"), take(1usize))),
-        |x : (&str, &str)| Token::NumberedEnding(x.1.to_string()))
+    map(tuple((tag("N"), take(1usize))), |x: (&str, &str)| {
+        Token::NumberedEnding(x.1.to_string())
+    })
 }
 
 fn comment<'a>() -> impl FnMut(&'a str) -> IResult<&'a str, Token> {
-    map(tuple((tag("<"), take_until(">"), tag(">"))),
-        |x : (&str, &str, &str)| Token::Comment(x.1.to_string()))
+    map(
+        tuple((tag("<"), take_until(">"), tag(">"))),
+        |x: (&str, &str, &str)| Token::Comment(x.1.to_string()),
+    )
 }
 
 fn alternate<'a>() -> impl FnMut(&'a str) -> IResult<&'a str, Token> {
-    map(tuple((tag("("), chord(), tag(")"))),
-        |x : (&str, Chord, &str)| Token::AlternateChord(x.1))
+    map(
+        tuple((tag("("), chord(), tag(")"))),
+        |x: (&str, Chord, &str)| Token::AlternateChord(x.1),
+    )
 }
 
 fn note<'a>() -> impl FnMut(&'a str) -> IResult<&'a str, Note> {
@@ -331,7 +369,7 @@ fn note<'a>() -> impl FnMut(&'a str) -> IResult<&'a str, Note> {
         map(tag("Gb"), |_| Note::GFlat),
         map(tag("G#"), |_| Note::GSharp),
         map(tag("G"), |_| Note::G),
-        map(tag("W"), |_| Note::W)
+        map(tag("W"), |_| Note::W),
     ))
 }
 
@@ -344,15 +382,12 @@ fn number<'a>() -> impl FnMut(&'a str) -> IResult<&'a str, Number> {
         map(tag("7"), |_| Number::Seven),
         map(tag("9"), |_| Number::Nine),
         map(tag("11"), |_| Number::Eleven),
-        map(tag("13"), |_| Number::Thirteen)
+        map(tag("13"), |_| Number::Thirteen),
     ))
 }
 
 fn number_option<'a>() -> impl FnMut(&'a str) -> IResult<&'a str, Option<Number>> {
-    alt((
-        map(number(), Some),
-        map(tag(""), |_| None),
-    ))
+    alt((map(number(), Some), map(tag(""), |_| None)))
 }
 
 fn flavor<'a>() -> impl FnMut(&'a str) -> IResult<&'a str, Flavor> {
@@ -360,134 +395,135 @@ fn flavor<'a>() -> impl FnMut(&'a str) -> IResult<&'a str, Flavor> {
     alt((
         map(tag("69"), |_| Flavor::SixthNinth),
         map(tag("-69"), |_| Flavor::MinorSixthNinth),
-        map(tuple((tag("-^"), number_option())), |x| Flavor::MinorMajor(x.1)),
+        map(tuple((tag("-^"), number_option())), |x| {
+            Flavor::MinorMajor(x.1)
+        }),
         map(tuple((tag("-"), number_option())), |x| Flavor::Minor(x.1)),
         map(tuple((tag("^"), number_option())), |x| Flavor::Major(x.1)),
-        map(tuple((tag("h"), number_option())), |x| Flavor::HalfDiminished(x.1)),
-        map(tuple((tag("o^"), number_option())), |x| Flavor::DiminishedMajor(x.1)),
-        map(tuple((tag("o"), number_option())), |x| Flavor::Diminished(x.1)),
-        map(tuple((tag("+"), number_option())), |x| Flavor::Augmented(x.1)),
-        map(number_option(), Flavor::Dominant)
+        map(tuple((tag("h"), number_option())), |x| {
+            Flavor::HalfDiminished(x.1)
+        }),
+        map(tuple((tag("o^"), number_option())), |x| {
+            Flavor::DiminishedMajor(x.1)
+        }),
+        map(tuple((tag("o"), number_option())), |x| {
+            Flavor::Diminished(x.1)
+        }),
+        map(tuple((tag("+"), number_option())), |x| {
+            Flavor::Augmented(x.1)
+        }),
+        map(number_option(), Flavor::Dominant),
     ))
 }
 
 fn altered_notes<'a>() -> impl FnMut(&'a str) -> IResult<&'a str, Vec<AlteredNotes>> {
-    many0(
-        alt((
-            map(tuple((tag("b"), number())), |x| AlteredNotes::Flat(x.1)),
-            map(tuple((tag("#"), number())), |x| AlteredNotes::Sharp(x.1)),
-            map(tuple((tag("add"), number())), |x| AlteredNotes::Add(x.1)),
-            map(tag("sus"), |_| AlteredNotes::Sus),
-            map(tag("alt"), |_| AlteredNotes::Alt)
-        ))
-    )
+    many0(alt((
+        map(tuple((tag("b"), number())), |x| AlteredNotes::Flat(x.1)),
+        map(tuple((tag("#"), number())), |x| AlteredNotes::Sharp(x.1)),
+        map(tuple((tag("add"), number())), |x| AlteredNotes::Add(x.1)),
+        map(tag("sus"), |_| AlteredNotes::Sus),
+        map(tag("alt"), |_| AlteredNotes::Alt),
+    )))
 }
 
 fn over<'a>() -> impl FnMut(&'a str) -> IResult<&'a str, Option<Note>> {
     alt((
-        map( tuple((tag("/"), note())), |x| Some(x.1)),
-        map( tag(""), |_| None)
+        map(tuple((tag("/"), note())), |x| Some(x.1)),
+        map(tag(""), |_| None),
     ))
 }
 
 fn chord<'a>() -> impl FnMut(&'a str) -> IResult<&'a str, Chord> {
     alt((
-        map( tag("n"), |_| Chord::NC),
-        map(tuple((note(), flavor(), altered_notes(), over())),
-            |x| 
-                Chord::Some {
-                    root: x.0,
-                    flavor: x.1,
-                    altered_notes: x.2,
-                    bass_note: x.3
-                }))
-    )
+        map(tag("n"), |_| Chord::NC),
+        map(tuple((note(), flavor(), altered_notes(), over())), |x| {
+            Chord::Some {
+                root: x.0,
+                flavor: x.1,
+                altered_notes: x.2,
+                bass_note: x.3,
+            }
+        }),
+    ))
 }
 
 fn chord_token<'a>() -> impl FnMut(&'a str) -> IResult<&'a str, Token> {
     alt((
-        map( tag("n"), |_| Token::Chord(Chord::NC)),
-        map(tuple((note(), flavor(), altered_notes(), over())),
-            |x| Token::Chord (
-                Chord::Some {
-                    root: x.0,
-                    flavor: x.1,
-                    altered_notes: x.2,
-                    bass_note: x.3
-                })))
-    )
+        map(tag("n"), |_| Token::Chord(Chord::NC)),
+        map(tuple((note(), flavor(), altered_notes(), over())), |x| {
+            Token::Chord(Chord::Some {
+                root: x.0,
+                flavor: x.1,
+                altered_notes: x.2,
+                bass_note: x.3,
+            })
+        }),
+    ))
 }
 
 fn time_signature<'a>() -> impl FnMut(&'a str) -> IResult<&'a str, Token> {
     /* The only signatures in jazz1400 are: T24, T34, T44, T54, T64. */
     /* Assume top number can be multiple digits, and the bottom number is a
      * single digit. */
-    map(tuple((tag("T"), digit1)),
-        |x| {
-            let digits : &str = x.1;
-            let (top, bottom) = digits.split_at(digits.len() - 1);
-            let top_num = top.parse().unwrap();
-            let bottom_num = bottom.parse().unwrap();
-            Token::TimeSignature(top_num, bottom_num)
+    map(tuple((tag("T"), digit1)), |x| {
+        let digits: &str = x.1;
+        let (top, bottom) = digits.split_at(digits.len() - 1);
+        let top_num = top.parse().unwrap();
+        let bottom_num = bottom.parse().unwrap();
+        Token::TimeSignature(top_num, bottom_num)
     })
 }
 
-fn control<'a>() -> impl FnMut(&'a str) -> IResult<&'a str, Token>
-{
+fn control<'a>() -> impl FnMut(&'a str) -> IResult<&'a str, Token> {
     alt((
-            map(tag("{"), |_| Token::RepeatStart),
-            map(tag("}|"), |_| Token::RepeatEnd),
-            map(tag("}"), |_| Token::RepeatEnd),
-            map(tag(","), |_| Token::Comma),
-            map(tag("XyQ"), |_| Token::Blank),
-            map(tag("r|"), |_| Token::RepeatTwoMeasures),
-            map(tag("x"), |_| Token::RepeatMeasure),
-            map(tag("s"), |_| Token::Squeeze),
-            map(tag("Q"), |_| Token::Coda),
-            map(tag("S"), |_| Token::Segno),
-            map(tag("Y"), |_| Token::VerticalSpace),
-            map(tag("p"), |_| Token::PauseSlash),
-            map(tag("U"), |_| Token::EndingMeasure),
-            map(tag("l"), |_| Token::SmallL),
-            map(tag("f"), |_| Token::Fermata),
-            map(tag(" "), |_| Token::Space),
+        map(tag("{"), |_| Token::RepeatStart),
+        map(tag("}|"), |_| Token::RepeatEnd),
+        map(tag("}"), |_| Token::RepeatEnd),
+        map(tag(","), |_| Token::Comma),
+        map(tag("XyQ"), |_| Token::Blank),
+        map(tag("r|"), |_| Token::RepeatTwoMeasures),
+        map(tag("x"), |_| Token::RepeatMeasure),
+        map(tag("s"), |_| Token::Squeeze),
+        map(tag("Q"), |_| Token::Coda),
+        map(tag("S"), |_| Token::Segno),
+        map(tag("Y"), |_| Token::VerticalSpace),
+        map(tag("p"), |_| Token::PauseSlash),
+        map(tag("U"), |_| Token::EndingMeasure),
+        map(tag("l"), |_| Token::SmallL),
+        map(tag("f"), |_| Token::Fermata),
+        map(tag(" "), |_| Token::Space),
     ))
 }
 
-fn bar<'a>() -> impl FnMut(&'a str) -> IResult<&'a str, Token>
-{
+fn bar<'a>() -> impl FnMut(&'a str) -> IResult<&'a str, Token> {
     alt((
-            map(tag("||"), |_| Token::Bar),
-            map(tag("|"), |_| Token::Bar),
-            map(tag("["), |_| Token::DoubleBarStart),
-            map(tag("]"), |_| Token::DoubleBarEnd),
-            map(tag("Z"), |_| Token::FinalBar),
-            map(tag("Kcl"), |_| Token::BarAndRepeat),
-            map(tag("LZ|"), |_| Token::Bar),
-            map(tag("LZ"), |_| Token::Bar),
+        map(tag("||"), |_| Token::Bar),
+        map(tag("|"), |_| Token::Bar),
+        map(tag("["), |_| Token::DoubleBarStart),
+        map(tag("]"), |_| Token::DoubleBarEnd),
+        map(tag("Z"), |_| Token::FinalBar),
+        map(tag("Kcl"), |_| Token::BarAndRepeat),
+        map(tag("LZ|"), |_| Token::Bar),
+        map(tag("LZ"), |_| Token::Bar),
     ))
 }
 
-fn parse_tokens(input : &str) -> IResult<&str, Vec<Token>>
-{
-    many0(
-        alt((
-            chord_token(),
-            bar(),
-            control(),
-            comment(),
-            alternate(),
-            section_marker(),
-            numbered_ending(),
-            time_signature()
-        ))
-    )(input)
+fn parse_tokens(input: &str) -> IResult<&str, Vec<Token>> {
+    many0(alt((
+        chord_token(),
+        bar(),
+        control(),
+        comment(),
+        alternate(),
+        section_marker(),
+        numbered_ending(),
+        time_signature(),
+    )))(input)
 }
 
-pub fn parse_music(text : &str) -> Result<Music, String>
-{
+pub fn parse_music(text: &str) -> Result<Music, String> {
     let mut bars = vec![];
-    let mut time_signature = TimeSignature {top: 4, bottom:4}; // Default time signature
+    let mut time_signature = TimeSignature { top: 4, bottom: 4 }; // Default time signature
     let mut bar = None;
     let mut count = 0;
     for token in all_consuming(parse_tokens)(text).unwrap().1 {
@@ -498,7 +534,7 @@ pub fn parse_music(text : &str) -> Result<Music, String>
                     bar = None;
                     count = 0;
                 }
-            },
+            }
             Token::Chord(c) => {
                 if bar.is_none() {
                     bar = Some(Bar::new(time_signature.top));
@@ -506,14 +542,14 @@ pub fn parse_music(text : &str) -> Result<Music, String>
                 }
                 bar.as_mut().unwrap().counts[count].push(BarElement::Chord(c));
                 count += 1;
-            },
+            }
             Token::AlternateChord(c) => {
                 if bar.is_none() {
                     bar = Some(Bar::new(time_signature.top));
                     count = 0;
                 }
                 bar.as_mut().unwrap().counts[count].push(BarElement::AlternateChord(c));
-            },
+            }
             Token::RepeatMeasure => {
                 if bars.is_empty() {
                     return Err("Repeat measure at beginning of song".to_string());
@@ -521,7 +557,7 @@ pub fn parse_music(text : &str) -> Result<Music, String>
                 let last_bar = bars.last().unwrap();
                 bar = Some(last_bar.clone());
                 count = 0;
-            },
+            }
             Token::RepeatTwoMeasures => {
                 if bars.len() < 2 {
                     return Err("Repeat 2 measures at beginning of song".to_string());
@@ -531,7 +567,7 @@ pub fn parse_music(text : &str) -> Result<Music, String>
                 bars.push(a);
                 bar = Some(b.clone());
                 count = 0;
-            },
+            }
             Token::BarAndRepeat => {
                 if let Some(unwrapped_bar) = bar {
                     bars.push(unwrapped_bar);
@@ -539,20 +575,20 @@ pub fn parse_music(text : &str) -> Result<Music, String>
                 let last_bar = bars.last().unwrap();
                 bar = Some(last_bar.clone());
                 count = 0;
-            },
+            }
             Token::Space => {
                 if bar.is_none() {
                     bar = Some(Bar::new(time_signature.top));
                     count = 0;
                 }
                 count += 1;
-            },
+            }
             ignore => println!("Ignoring token: {:?}", ignore),
         }
     }
     Ok(Music {
-        repeat_start : None,
+        repeat_start: None,
         bars,
-        raw : text.to_string()
+        raw: text.to_string(),
     })
 }

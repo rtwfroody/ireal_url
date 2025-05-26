@@ -1,21 +1,13 @@
 mod tokenize;
-pub use tokenize::{
-    Bar,
-    BarElement,
-    Chord,
-    Music,
-    Note,
-    Number,
-    Flavor
-};
+pub use tokenize::{Bar, BarElement, Chord, Flavor, Music, Note, Number};
 
-const MUSIC_PREFIX : &str = "1r34LbKcu7";
+const MUSIC_PREFIX: &str = "1r34LbKcu7";
 
 /*
  * Format reference: https://github.com/pianosnake/ireal-reader
  */
 
-fn unscramble(mut text : &str) -> String {
+fn unscramble(mut text: &str) -> String {
     /* Directly translated from
      * https://github.com/pianosnake/ireal-reader/blob/ce643f069732ab93b1dcbd621b6c0edfe9ab8a8b/unscramble.js#L5 */
     let mut result = String::new();
@@ -35,12 +27,12 @@ fn unscramble(mut text : &str) -> String {
     result
 }
 
-fn obfusc50(text : &str) -> String {
+fn obfusc50(text: &str) -> String {
     /* Directly translated from
      * https://github.com/pianosnake/ireal-reader/blob/ce643f069732ab93b1dcbd621b6c0edfe9ab8a8b/unscramble.js#L21 */
 
     // The first 5 characters are switched with the last 5.
-    let mut chars : Vec<char> = text.chars().collect();
+    let mut chars: Vec<char> = text.chars().collect();
     let last = chars.len() - 1;
     for i in 0..5 {
         chars.swap(i, last - i);
@@ -53,7 +45,7 @@ fn obfusc50(text : &str) -> String {
     chars.into_iter().collect::<String>()
 }
 
-fn decode_music(text : &str) -> Result<Music, String> {
+fn decode_music(text: &str) -> Result<Music, String> {
     if !text.starts_with(MUSIC_PREFIX) {
         return Err(format!("Music doesn't start with {}", MUSIC_PREFIX));
     }
@@ -61,24 +53,39 @@ fn decode_music(text : &str) -> Result<Music, String> {
     tokenize::parse_music(unscrambled.as_str())
 }
 
-fn hex_digit_value(ch : char) -> Result<u32, String> {
+fn hex_digit_value(ch: char) -> Result<u32, String> {
     match ch {
-        '0' => Ok(0), '1' => Ok(1), '2' => Ok(2), '3' => Ok(3),
-        '4' => Ok(4), '5' => Ok(5), '6' => Ok(6), '7' => Ok(7),
-        '8' => Ok(8), '9' => Ok(9), 'a' => Ok(10), 'b' => Ok(11),
-        'c' => Ok(12), 'd' => Ok(13), 'e' => Ok(14), 'f' => Ok(15),
-        'A' => Ok(10), 'B' => Ok(11), 'C' => Ok(12), 'D' => Ok(13),
-        'E' => Ok(14), 'F' => Ok(15),
-        _ => Err(format!("Unknown value: {}", ch))
+        '0' => Ok(0),
+        '1' => Ok(1),
+        '2' => Ok(2),
+        '3' => Ok(3),
+        '4' => Ok(4),
+        '5' => Ok(5),
+        '6' => Ok(6),
+        '7' => Ok(7),
+        '8' => Ok(8),
+        '9' => Ok(9),
+        'a' => Ok(10),
+        'b' => Ok(11),
+        'c' => Ok(12),
+        'd' => Ok(13),
+        'e' => Ok(14),
+        'f' => Ok(15),
+        'A' => Ok(10),
+        'B' => Ok(11),
+        'C' => Ok(12),
+        'D' => Ok(13),
+        'E' => Ok(14),
+        'F' => Ok(15),
+        _ => Err(format!("Unknown value: {}", ch)),
     }
 }
 
-fn unescape_percent(text : &str) -> Result<String, String>
-{
+fn unescape_percent(text: &str) -> Result<String, String> {
     enum UnescapeState {
         Plain,
         Percent,
-        One
+        One,
     }
 
     let mut state = UnescapeState::Plain;
@@ -88,7 +95,7 @@ fn unescape_percent(text : &str) -> Result<String, String>
         match state {
             UnescapeState::Plain => match c {
                 '%' => state = UnescapeState::Percent,
-                _ => result.push(c)
+                _ => result.push(c),
             },
             UnescapeState::Percent => {
                 num = 16 * hex_digit_value(c)?;
@@ -106,26 +113,26 @@ fn unescape_percent(text : &str) -> Result<String, String>
 
 #[derive(Debug, PartialEq)]
 pub struct Collection {
-    pub title : String,
-    pub songs : Vec<Song>
+    pub title: String,
+    pub songs: Vec<Song>,
 }
 
 #[derive(Debug, PartialEq, Clone, Eq)]
 pub struct Song {
-    pub title : String,
-    pub composer : String,
-    pub style : String,
-    pub key : String,
-    pub transpose : String,
-    pub music : Music,
-    pub comp_style : String,
-    pub bpm : u32,
-    pub repeats : String
+    pub title: String,
+    pub composer: String,
+    pub style: String,
+    pub key: String,
+    pub transpose: String,
+    pub music: Music,
+    pub comp_style: String,
+    pub bpm: u32,
+    pub repeats: String,
 }
 
 impl Song {
-    fn from_text(text : &str) -> Self {
-        let parts : Vec<&str> = text.split("=").collect();
+    fn from_text(text: &str) -> Self {
+        let parts: Vec<&str> = text.split("=").collect();
         println!("title: {}", parts[0]);
         Song {
             title: parts[0].to_string(),
@@ -136,7 +143,7 @@ impl Song {
             music: decode_music(parts[6]).unwrap(),
             comp_style: parts[7].to_string(),
             bpm: parts[8].parse().unwrap(),
-            repeats: parts[9].to_string()
+            repeats: parts[9].to_string(),
         }
     }
 
@@ -163,27 +170,25 @@ impl Song {
 }
 
 /* See https://loophole-letters.vercel.app/ireal-changes */
-pub fn parse_url(mut text : &str) -> Result<Collection, String> {
+pub fn parse_url(mut text: &str) -> Result<Collection, String> {
     text = text.trim();
     if !text.starts_with("irealb://") {
-        return Err("Expected URL to start with 'irealb://'".to_string())
+        return Err("Expected URL to start with 'irealb://'".to_string());
     }
 
     let unescaped = unescape_percent(&text[9..])?;
 
-    let mut parts : Vec<&str> = unescaped.split("===").collect();
-    let collection_title =
-            if parts.len() > 1 {
-                parts.pop().unwrap()
-            } else {
-                "No Title"
-            };
-    let songs = parts.into_iter()
-            .map(Song::from_text)
-            .collect();
-    Ok(Collection{
+    let mut parts: Vec<&str> = unescaped.split("===").collect();
+    let collection_title = if parts.len() > 1 {
+        parts.pop().unwrap()
+    } else {
+        "No Title"
+    };
+    let songs = parts.into_iter().map(Song::from_text).collect();
+    Ok(Collection {
         title: collection_title.to_string(),
-        songs})
+        songs,
+    })
 }
 
 #[cfg(test)]
@@ -203,139 +208,117 @@ mod tests {
         let result = parse_url(text).unwrap();
 
         #[allow(non_snake_case)]
-        let Ab7b9s5 = BarElement::Chord(
-            Chord::Some {
-                root: Note::AFlat,
-                flavor: Flavor::Dominant(Some(Number::Seven)),
-                altered_notes: vec![AlteredNotes::Flat(Number::Nine), AlteredNotes::Sharp(Number::Five)],
-                bass_note: None
-            }
-        );
+        let Ab7b9s5 = BarElement::Chord(Chord::Some {
+            root: Note::AFlat,
+            flavor: Flavor::Dominant(Some(Number::Seven)),
+            altered_notes: vec![
+                AlteredNotes::Flat(Number::Nine),
+                AlteredNotes::Sharp(Number::Five),
+            ],
+            bass_note: None,
+        });
 
         #[allow(non_snake_case)]
-        let A7 = BarElement::Chord(
-            Chord::Some {
-                root: Note::A,
-                flavor: Flavor::Dominant(Some(Number::Seven)),
-                altered_notes: vec![],
-                bass_note: None
-            }
-        );
+        let A7 = BarElement::Chord(Chord::Some {
+            root: Note::A,
+            flavor: Flavor::Dominant(Some(Number::Seven)),
+            altered_notes: vec![],
+            bass_note: None,
+        });
 
         #[allow(non_snake_case)]
-        let C7b5 = BarElement::Chord(
-            Chord::Some {
-                root: Note::C,
-                flavor: Flavor::Dominant(Some(Number::Seven)),
-                altered_notes: vec![AlteredNotes::Flat(Number::Five)],
-                bass_note: None
-            }
-        );
+        let C7b5 = BarElement::Chord(Chord::Some {
+            root: Note::C,
+            flavor: Flavor::Dominant(Some(Number::Seven)),
+            altered_notes: vec![AlteredNotes::Flat(Number::Five)],
+            bass_note: None,
+        });
 
         #[allow(non_snake_case)]
-        let Ch7= BarElement::Chord(
-            Chord::Some {
-                root: Note::C,
-                flavor: Flavor::HalfDiminished(Some(Number::Seven)),
-                altered_notes: vec![],
-                bass_note: None
-            }
-        );
+        let Ch7 = BarElement::Chord(Chord::Some {
+            root: Note::C,
+            flavor: Flavor::HalfDiminished(Some(Number::Seven)),
+            altered_notes: vec![],
+            bass_note: None,
+        });
 
         #[allow(non_snake_case)]
-        let Db7 = BarElement::Chord(
-            Chord::Some {
-                root: Note::DFlat,
-                flavor: Flavor::Dominant(Some(Number::Seven)),
-                altered_notes: vec![],
-                bass_note: None
-            }
-        );
+        let Db7 = BarElement::Chord(Chord::Some {
+            root: Note::DFlat,
+            flavor: Flavor::Dominant(Some(Number::Seven)),
+            altered_notes: vec![],
+            bass_note: None,
+        });
 
         #[allow(non_snake_case)]
-        let D7 = BarElement::Chord(
-            Chord::Some {
-                root: Note::D,
-                flavor: Flavor::Dominant(Some(Number::Seven)),
-                altered_notes: vec![],
-                bass_note: None
-            }
-        );
+        let D7 = BarElement::Chord(Chord::Some {
+            root: Note::D,
+            flavor: Flavor::Dominant(Some(Number::Seven)),
+            altered_notes: vec![],
+            bass_note: None,
+        });
 
         #[allow(non_snake_case)]
-        let D7sus = BarElement::Chord(
-            Chord::Some {
-                root: Note::D,
-                flavor: Flavor::Dominant(Some(Number::Seven)),
-                altered_notes: vec![AlteredNotes::Sus],
-                bass_note: None
-            }
-        );
+        let D7sus = BarElement::Chord(Chord::Some {
+            root: Note::D,
+            flavor: Flavor::Dominant(Some(Number::Seven)),
+            altered_notes: vec![AlteredNotes::Sus],
+            bass_note: None,
+        });
 
         #[allow(non_snake_case)]
-        let Eb7 = BarElement::Chord(
-            Chord::Some {
-                root: Note::EFlat,
-                flavor: Flavor::Dominant(Some(Number::Seven)),
-                altered_notes: vec![],
-                bass_note: None
-            }
-        );
+        let Eb7 = BarElement::Chord(Chord::Some {
+            root: Note::EFlat,
+            flavor: Flavor::Dominant(Some(Number::Seven)),
+            altered_notes: vec![],
+            bass_note: None,
+        });
 
         #[allow(non_snake_case)]
-        let E7 = BarElement::Chord(
-            Chord::Some {
-                root: Note::E,
-                flavor: Flavor::Dominant(Some(Number::Seven)),
-                altered_notes: vec![],
-                bass_note: None
-            }
-        );
+        let E7 = BarElement::Chord(Chord::Some {
+            root: Note::E,
+            flavor: Flavor::Dominant(Some(Number::Seven)),
+            altered_notes: vec![],
+            bass_note: None,
+        });
 
         #[allow(non_snake_case)]
-        let F7 = BarElement::Chord(
-            Chord::Some {
-                root: Note::F,
-                flavor: Flavor::Dominant(Some(Number::Seven)),
-                altered_notes: vec![],
-                bass_note: None
-            }
-        );
+        let F7 = BarElement::Chord(Chord::Some {
+            root: Note::F,
+            flavor: Flavor::Dominant(Some(Number::Seven)),
+            altered_notes: vec![],
+            bass_note: None,
+        });
 
         #[allow(non_snake_case)]
-        let Gb7 = BarElement::Chord(
-            Chord::Some {
-                root: Note::GFlat,
-                flavor: Flavor::Dominant(Some(Number::Seven)),
-                altered_notes: vec![],
-                bass_note: None
-            }
-        );
+        let Gb7 = BarElement::Chord(Chord::Some {
+            root: Note::GFlat,
+            flavor: Flavor::Dominant(Some(Number::Seven)),
+            altered_notes: vec![],
+            bass_note: None,
+        });
 
         #[allow(non_snake_case)]
-        let G = BarElement::Chord(
-            Chord::Some {
-                root: Note::G,
-                flavor: Flavor::Dominant(None),
-                altered_notes: vec![],
-                bass_note: None
-            }
-        );
+        let G = BarElement::Chord(Chord::Some {
+            root: Note::G,
+            flavor: Flavor::Dominant(None),
+            altered_notes: vec![],
+            bass_note: None,
+        });
 
         #[allow(non_snake_case)]
-        let G7b5 = BarElement::Chord(
-            Chord::Some {
-                root: Note::G,
-                flavor: Flavor::Dominant(Some(Number::Seven)),
-                altered_notes: vec![AlteredNotes::Flat(Number::Five)],
-                bass_note: None
-            }
-        );
+        let G7b5 = BarElement::Chord(Chord::Some {
+            root: Note::G,
+            flavor: Flavor::Dominant(Some(Number::Seven)),
+            altered_notes: vec![AlteredNotes::Flat(Number::Five)],
+            bass_note: None,
+        });
 
-        assert_eq!(result, Collection {
-            title: String::new(),
-            songs: vec![
-                Song {
+        assert_eq!(
+            result,
+            Collection {
+                title: String::new(),
+                songs: vec![Song {
                     title: "Work".to_string(),
                     composer: "Monk Thelonious".to_string(),
                     style: "Medium Swing".to_string(),
@@ -345,7 +328,8 @@ mod tests {
                         repeat_start: None,
                         raw: "{*AT44Db7XyQKcl LZGb7XyQKcl LZF7 E7LZEb7XyQ|D7XyQKcl  }\
                             [*BD7sus G7b5LZG7b5XyQ|C7b5XyQKcl LZCh7XyQ|F7XyQ|E7 A7LZAb7b9#5XyQ]\
-                            [*CDb7XyQKcl LZGb7XyQKcl LZF7 E7LZEb7XyQ|D7XyQKcl Q ZY|QGXyQZ ".to_string(),
+                            [*CDb7XyQKcl LZGb7XyQKcl LZF7 E7LZEb7XyQ|D7XyQKcl Q ZY|QGXyQZ "
+                            .to_string(),
                         bars: vec![
                             Bar::from_counts(&[vec![Db7.clone()], vec![], vec![], vec![]]),
                             Bar::from_counts(&[vec![Db7.clone()], vec![], vec![], vec![]]),
@@ -355,7 +339,12 @@ mod tests {
                             Bar::from_counts(&[vec![Eb7.clone()], vec![], vec![], vec![]]),
                             Bar::from_counts(&[vec![D7.clone()], vec![], vec![], vec![]]),
                             Bar::from_counts(&[vec![D7.clone()], vec![], vec![], vec![]]),
-                            Bar::from_counts(&[vec![D7sus.clone()], vec![], vec![G7b5.clone()], vec![]]),
+                            Bar::from_counts(&[
+                                vec![D7sus.clone()],
+                                vec![],
+                                vec![G7b5.clone()],
+                                vec![]
+                            ]),
                             Bar::from_counts(&[vec![G7b5.clone()], vec![], vec![], vec![]]),
                             Bar::from_counts(&[vec![C7b5.clone()], vec![], vec![], vec![]]),
                             Bar::from_counts(&[vec![C7b5.clone()], vec![], vec![], vec![]]),
@@ -373,7 +362,12 @@ mod tests {
                             Bar::from_counts(&[vec![D7.clone()], vec![], vec![], vec![]]),
                             Bar::from_counts(&[vec![G.clone()], vec![], vec![], vec![]]),
                         ]
-            }, comp_style: "".to_string(), bpm: 0, repeats: "0".to_string() }]
-        });
+                    },
+                    comp_style: "".to_string(),
+                    bpm: 0,
+                    repeats: "0".to_string()
+                }]
+            }
+        );
     }
 }
