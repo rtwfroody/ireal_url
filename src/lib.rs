@@ -1,5 +1,7 @@
+mod parse;
 mod tokenize;
-pub use tokenize::{Bar, BarElement, Chord, Flavor, Music, Note, Number};
+mod types;
+use parse::Music;
 
 const MUSIC_PREFIX: &str = "1r34LbKcu7";
 
@@ -50,7 +52,7 @@ fn decode_music(text: &str) -> Result<Music, String> {
         return Err(format!("Music doesn't start with {}", MUSIC_PREFIX));
     }
     let unscrambled = unscramble(&text[MUSIC_PREFIX.len()..]);
-    tokenize::parse_music(unscrambled.as_str())
+    parse::parse_music(unscrambled.as_str())
 }
 
 fn hex_digit_value(ch: char) -> Result<u32, String> {
@@ -133,7 +135,7 @@ pub struct Song {
 impl Song {
     fn from_text(text: &str) -> Self {
         let parts: Vec<&str> = text.split("=").collect();
-        println!("title: {}", parts[0]);
+        println!("Title: {}", parts[0]);
         Song {
             title: parts[0].to_string(),
             composer: parts[1].to_string(),
@@ -193,7 +195,9 @@ pub fn parse_url(mut text: &str) -> Result<Collection, String> {
 
 #[cfg(test)]
 mod tests {
-    use crate::tokenize::AlteredNotes;
+    use std::fs;
+
+    use crate::{parse::{Bar, BarElement}, types::{AlteredNotes, Chord, Flavor, Note, Number}};
 
     use super::*;
     use pretty_assertions::assert_eq;
@@ -370,4 +374,14 @@ mod tests {
             }
         );
     }
+
+    /*
+    // TODO: Make pass
+    #[test]
+    fn all_jazz() {
+        // Try to parse every jazz song
+        let content = fs::read_to_string("src/tests/data/jazz1460.url").unwrap();
+        parse_url(&content).unwrap();
+    }
+    */
 }
