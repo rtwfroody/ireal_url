@@ -197,7 +197,10 @@ pub fn parse_url(mut text: &str) -> Result<Collection, String> {
 mod tests {
     use std::fs;
 
-    use crate::{parse::{Bar, BarElement}, types::{AlteredNotes, Chord, Flavor, Note, Number}};
+    use crate::{
+        parse::{Bar, BarElement},
+        types::{AlteredNotes, Chord, Flavor, Note, Number},
+    };
 
     use super::*;
     use pretty_assertions::assert_eq;

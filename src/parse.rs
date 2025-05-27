@@ -1,4 +1,11 @@
-use std::fmt;
+use std::{fmt, vec};
+
+use nom::{
+    combinator::{all_consuming, map, opt},
+    multi::many0,
+    sequence::tuple,
+    IResult,
+};
 
 use crate::{
     tokenize::{self, Token},
@@ -7,6 +14,7 @@ use crate::{
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Bar {
+    pub repeat_start: bool,
     pub counts: Box<[Vec<BarElement>]>,
 }
 
@@ -14,6 +22,7 @@ impl Bar {
     pub fn new(count_count: u32) -> Self {
         let counts = vec![vec![]; count_count as usize];
         Bar {
+            repeat_start: false,
             counts: counts.into_boxed_slice(),
         }
     }
@@ -21,7 +30,10 @@ impl Bar {
     pub fn from_counts(counts: &[Vec<BarElement>]) -> Self {
         let counts: Vec<_> = counts.to_vec();
         let counts = counts.into_boxed_slice();
-        Bar { counts }
+        Bar {
+            repeat_start: false,
+            counts,
+        }
     }
 }
 
@@ -66,77 +78,55 @@ impl fmt::Display for BarElement {
     }
 }
 
-pub fn parse_music(text: &str) -> Result<Music, String> {
-    let mut bars = vec![];
-    let time_signature = TimeSignature { top: 4, bottom: 4 }; // Default time signature
-    let mut increment = 2;
-    let mut bar = None;
-    let mut count = 0;
-    for token in tokenize::tokenize(text)? {
-        println!("  Token: {:?}", token);
-        match token {
-            Token::Bar
-            | Token::FinalBar
-            | Token::DoubleBarEnd
-            | Token::RepeatEnd
-            | Token::DoubleBarStart => {
-                if bar.is_some() {
-                    bars.push(bar.unwrap());
-                    bar = None;
-                    count = 0;
-                }
-            }
-            Token::Chord(c) => {
-                if bar.is_none() {
-                    bar = Some(Bar::new(time_signature.top));
-                    count = 0;
-                }
-                bar.as_mut().unwrap().counts[count].push(BarElement::Chord(c));
-                count += increment;
-            }
-            Token::AlternateChord(c) => {
-                // The alternate chord applies to the previous chord we added.
-                if bar.is_none() {
-                    bar = Some(Bar::new(time_signature.top));
-                    count = 0;
-                }
-                bar.as_mut().unwrap().counts[count].push(BarElement::AlternateChord(c));
-            }
-            Token::RepeatMeasure => {
-                if bars.is_empty() {
-                    return Err("Repeat measure at beginning of song".to_string());
-                }
-                let last_bar = bars.last().unwrap();
-                bar = Some(last_bar.clone());
-                count = 0;
-            }
-            Token::RepeatTwoMeasures => {
-                if bars.len() < 2 {
-                    return Err("Repeat 2 measures at beginning of song".to_string());
-                }
-                let a = bars[bars.len() - 2].clone();
-                let b = bars[bars.len() - 1].clone();
-                bars.push(a);
-                bar = Some(b.clone());
-                count = 0;
-            }
-            Token::BarAndRepeat => {
-                if let Some(unwrapped_bar) = bar {
-                    bars.push(unwrapped_bar);
-                }
-                let last_bar = bars.last().unwrap();
-                bar = Some(last_bar.clone());
-                count = 0;
-            }
-            Token::Squeeze => {
-                increment = 1;
-            }
-            Token::Unsqueeze => {
-                increment = 2;
-            }
-            ignore => println!("    Ignoring token: {:?}", ignore),
+fn token<'a>(expected: Token) -> impl Fn(&'a [Token]) -> IResult<&'a [Token], Token> {
+    move |input: &'a [Token]| {
+        let (tok, remainder) = input.split_first().unwrap();
+        if tok != &expected {
+            Err(nom::Err::Error(nom::error::Error::new(
+                input,
+                nom::error::ErrorKind::Tag,
+            )))
+        } else {
+            Ok((remainder, tok.clone()))
         }
     }
+}
+
+fn chord(input: &[Token]) -> IResult<&[Token], BarElement> {
+    match input.first() {
+        Some(Token::Chord(c)) => Ok((&input[1..], BarElement::Chord(c.clone()))),
+        _ => Err(nom::Err::Error(nom::error::Error::new(
+            input,
+            nom::error::ErrorKind::Tag,
+        ))),
+    }
+}
+
+fn bar(input: &[Token]) -> IResult<&[Token], Bar> {
+    // A simple bar is one or more chords.
+    map(
+        tuple((
+            opt(token(Token::RepeatStart)),
+            many0(chord),
+            opt(token(Token::Bar)),
+        )),
+        |(repeat_start, chords, _)| {
+            let repeat_start = repeat_start.is_some();
+            Bar {
+                repeat_start,
+                counts: chords
+                    .into_iter()
+                    .map(|c| vec![c])
+                    .collect::<Vec<_>>()
+                    .into_boxed_slice(),
+            }
+        },
+    )(input)
+}
+
+pub fn parse_music(text: &str) -> Result<Music, String> {
+    let tokens = tokenize::tokenize(text)?;
+    let bars = all_consuming(many0(bar))(&tokens).unwrap().1;
     Ok(Music {
         repeat_start: None,
         bars,
