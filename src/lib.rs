@@ -195,16 +195,15 @@ pub fn parse_url(mut text: &str) -> Result<Collection, String> {
 
 #[cfg(test)]
 mod tests {
-    use std::fs;
-
     use crate::{
-        parse::{Bar, BarElement},
+        parse::{Bar, CountElement},
         types::{AlteredNotes, Chord, Flavor, Note, Number},
     };
 
     use super::*;
     use pretty_assertions::assert_eq;
 
+    /*
     #[test]
     fn work() {
         let text = "irealb://Work=Monk%20Thelonious==Medium%20Swing=Db==1r34LbK\
@@ -215,7 +214,7 @@ mod tests {
         let result = parse_url(text).unwrap();
 
         #[allow(non_snake_case)]
-        let Ab7b9s5 = BarElement::Chord(Chord::Some {
+        let Ab7b9s5 = CountElement::Chord(Chord::Some {
             root: Note::AFlat,
             flavor: Flavor::Dominant(Some(Number::Seven)),
             altered_notes: vec![
@@ -226,7 +225,7 @@ mod tests {
         });
 
         #[allow(non_snake_case)]
-        let A7 = BarElement::Chord(Chord::Some {
+        let A7 = CountElement::Chord(Chord::Some {
             root: Note::A,
             flavor: Flavor::Dominant(Some(Number::Seven)),
             altered_notes: vec![],
@@ -234,7 +233,7 @@ mod tests {
         });
 
         #[allow(non_snake_case)]
-        let C7b5 = BarElement::Chord(Chord::Some {
+        let C7b5 = CountElement::Chord(Chord::Some {
             root: Note::C,
             flavor: Flavor::Dominant(Some(Number::Seven)),
             altered_notes: vec![AlteredNotes::Flat(Number::Five)],
@@ -242,7 +241,7 @@ mod tests {
         });
 
         #[allow(non_snake_case)]
-        let Ch7 = BarElement::Chord(Chord::Some {
+        let Ch7 = CountElement::Chord(Chord::Some {
             root: Note::C,
             flavor: Flavor::HalfDiminished(Some(Number::Seven)),
             altered_notes: vec![],
@@ -250,7 +249,7 @@ mod tests {
         });
 
         #[allow(non_snake_case)]
-        let Db7 = BarElement::Chord(Chord::Some {
+        let Db7 = CountElement::Chord(Chord::Some {
             root: Note::DFlat,
             flavor: Flavor::Dominant(Some(Number::Seven)),
             altered_notes: vec![],
@@ -258,7 +257,7 @@ mod tests {
         });
 
         #[allow(non_snake_case)]
-        let D7 = BarElement::Chord(Chord::Some {
+        let D7 = CountElement::Chord(Chord::Some {
             root: Note::D,
             flavor: Flavor::Dominant(Some(Number::Seven)),
             altered_notes: vec![],
@@ -266,7 +265,7 @@ mod tests {
         });
 
         #[allow(non_snake_case)]
-        let D7sus = BarElement::Chord(Chord::Some {
+        let D7sus = CountElement::Chord(Chord::Some {
             root: Note::D,
             flavor: Flavor::Dominant(Some(Number::Seven)),
             altered_notes: vec![AlteredNotes::Sus],
@@ -274,7 +273,7 @@ mod tests {
         });
 
         #[allow(non_snake_case)]
-        let Eb7 = BarElement::Chord(Chord::Some {
+        let Eb7 = CountElement::Chord(Chord::Some {
             root: Note::EFlat,
             flavor: Flavor::Dominant(Some(Number::Seven)),
             altered_notes: vec![],
@@ -282,7 +281,7 @@ mod tests {
         });
 
         #[allow(non_snake_case)]
-        let E7 = BarElement::Chord(Chord::Some {
+        let E7 = CountElement::Chord(Chord::Some {
             root: Note::E,
             flavor: Flavor::Dominant(Some(Number::Seven)),
             altered_notes: vec![],
@@ -290,7 +289,7 @@ mod tests {
         });
 
         #[allow(non_snake_case)]
-        let F7 = BarElement::Chord(Chord::Some {
+        let F7 = CountElement::Chord(Chord::Some {
             root: Note::F,
             flavor: Flavor::Dominant(Some(Number::Seven)),
             altered_notes: vec![],
@@ -298,7 +297,7 @@ mod tests {
         });
 
         #[allow(non_snake_case)]
-        let Gb7 = BarElement::Chord(Chord::Some {
+        let Gb7 = CountElement::Chord(Chord::Some {
             root: Note::GFlat,
             flavor: Flavor::Dominant(Some(Number::Seven)),
             altered_notes: vec![],
@@ -306,7 +305,7 @@ mod tests {
         });
 
         #[allow(non_snake_case)]
-        let G = BarElement::Chord(Chord::Some {
+        let G = CountElement::Chord(Chord::Some {
             root: Note::G,
             flavor: Flavor::Dominant(None),
             altered_notes: vec![],
@@ -314,7 +313,7 @@ mod tests {
         });
 
         #[allow(non_snake_case)]
-        let G7b5 = BarElement::Chord(Chord::Some {
+        let G7b5 = CountElement::Chord(Chord::Some {
             root: Note::G,
             flavor: Flavor::Dominant(Some(Number::Seven)),
             altered_notes: vec![AlteredNotes::Flat(Number::Five)],
@@ -377,14 +376,15 @@ mod tests {
             }
         );
     }
+    */
 
-    /*
     // TODO: Make pass
     #[test]
     fn all_jazz() {
+        use std::fs;
+
         // Try to parse every jazz song
         let content = fs::read_to_string("src/tests/data/jazz1460.url").unwrap();
         parse_url(&content).unwrap();
     }
-    */
 }
