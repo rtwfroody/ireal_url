@@ -100,14 +100,22 @@ impl fmt::Display for BarElement {
 
 fn token<'a>(expected: Token) -> impl Fn(&'a [Token]) -> IResult<&'a [Token], Token> {
     move |input: &'a [Token]| {
-        let (tok, remainder) = input.split_first().unwrap();
-        if tok != &expected {
-            Err(nom::Err::Error(nom::error::Error::new(
-                input,
-                nom::error::ErrorKind::Tag,
-            )))
-        } else {
-            Ok((remainder, tok.clone()))
+        match input.split_first() {
+            None => {
+                Err(nom::Err::Error(nom::error::Error::new(
+                    input,
+                    nom::error::ErrorKind::Tag,
+                )))
+            },
+            Some((tok, _)) if tok == &expected => {
+                Ok((&input[1..], tok.clone()))
+            },
+            _ => {
+                Err(nom::Err::Error(nom::error::Error::new(
+                    input,
+                    nom::error::ErrorKind::Tag,
+                )))
+            }
         }
     }
 }
@@ -216,9 +224,9 @@ fn simple_bar(input: &[Token]) -> IResult<&[Token], SimpleBar> {
         alt((
             token(Token::DoubleBarEnd),
             token(Token::Bar),
+            token(Token::FinalBar),
         )),
-    ))(input)
-    .unwrap();
+    ))(input)?;
     let mut simple_bar = SimpleBar {
         double_start: start.is_some(),
         double_end: end == Token::DoubleBarEnd,
