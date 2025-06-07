@@ -100,11 +100,17 @@ impl fmt::Display for BarElement {
 
 fn token<'a>(expected: Token) -> impl Fn(&'a [Token]) -> IResult<&'a [Token], Token> {
     move |input: &'a [Token]| match input.split_first() {
-        None => Err(nom::Err::Error(nom::error::Error::new(
+        Some((tok, _)) if tok == &expected => Ok((&input[1..], tok.clone())),
+        _ => Err(nom::Err::Error(nom::error::Error::new(
             input,
             nom::error::ErrorKind::Tag,
         ))),
-        Some((tok, _)) if tok == &expected => Ok((&input[1..], tok.clone())),
+    }
+}
+
+fn non_consuming_token<'a>(expected: Token) -> impl Fn(&'a [Token]) -> IResult<&'a [Token], Token> {
+    move |input: &'a [Token]| match input.first() {
+        Some(tok) if tok == &expected => Ok((input, tok.clone())),
         _ => Err(nom::Err::Error(nom::error::Error::new(
             input,
             nom::error::ErrorKind::Tag,
@@ -220,6 +226,8 @@ fn simple_bar(input: &[Token]) -> IResult<&[Token], SimpleBar> {
             token(Token::DoubleBarEnd),
             token(Token::Bar),
             token(Token::FinalBar),
+            // 52nd Street Theme has a double bar start without a proper bar end token.
+            non_consuming_token(Token::DoubleBarStart),
         )),
     ))(input)?;
     let mut simple_bar = SimpleBar {
