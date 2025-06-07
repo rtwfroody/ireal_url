@@ -135,6 +135,7 @@ pub struct Song {
 impl Song {
     fn from_text(text: &str) -> Self {
         let parts: Vec<&str> = text.split("=").collect();
+        println!();
         println!("Title: {}", parts[0]);
         Song {
             title: parts[0].to_string(),

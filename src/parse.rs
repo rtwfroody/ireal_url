@@ -125,6 +125,7 @@ enum BarPrefixElement {
     SectionMarker(String),
     NumberedEnding(String),
     TimeSignature(u32, u32),
+    DoubleBarStart,
 }
 
 fn marker(input: &[Token]) -> IResult<&[Token], BarPrefixElement> {
@@ -190,10 +191,10 @@ struct SimpleBar {
 
 fn simple_bar(input: &[Token]) -> IResult<&[Token], SimpleBar> {
     // A simple bar is one or more chords.
-    let (remainder, (start, prefixes, simple_bar_content, repeat_end, end)) = tuple((
-        opt(token(Token::DoubleBarStart)),
+    let (remainder, (prefixes, simple_bar_content, repeat_end, end)) = tuple((
         many0(alt((
             map(token(Token::RepeatStart), |_| BarPrefixElement::RepeatStart),
+            map(token(Token::DoubleBarStart), |_| BarPrefixElement::DoubleBarStart),
             marker,
             time_signature,
         ))),
@@ -228,7 +229,7 @@ fn simple_bar(input: &[Token]) -> IResult<&[Token], SimpleBar> {
         )),
     ))(input)?;
     let mut simple_bar = SimpleBar {
-        double_start: start.is_some(),
+        double_start: false,
         double_end: end == Token::DoubleBarEnd,
         repeat_start: false,
         repeat_end: repeat_end.is_some(),
@@ -252,6 +253,9 @@ fn simple_bar(input: &[Token]) -> IResult<&[Token], SimpleBar> {
                     top: *top,
                     bottom: *bottom,
                 });
+            },
+            BarPrefixElement::DoubleBarStart => {
+                simple_bar.double_start = true;
             }
         }
     }
