@@ -21,7 +21,7 @@ use crate::types::Number;
 pub enum Width {
     Wide,
     Narrow,
-    Unknown
+    Unknown,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -187,12 +187,15 @@ fn chord_token<'a>() -> impl FnMut(&'a str) -> IResult<&'a str, Token> {
     alt((
         map(tag("n"), |_| Token::Chord(Chord::NC, Width::Unknown)),
         map(tuple((note(), flavor(), altered_notes(), over())), |x| {
-            Token::Chord(Chord::Some {
-                root: x.0,
-                flavor: x.1,
-                altered_notes: x.2,
-                bass_note: x.3,
-            }, Width::Unknown)
+            Token::Chord(
+                Chord::Some {
+                    root: x.0,
+                    flavor: x.1,
+                    altered_notes: x.2,
+                    bass_note: x.3,
+                },
+                Width::Unknown,
+            )
         }),
     ))
 }

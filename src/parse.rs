@@ -112,10 +112,10 @@ fn marker(input: &[Token]) -> IResult<&[Token], BarPrefixElement> {
     match input.first() {
         Some(Token::SectionMarker(s)) => {
             Ok((&input[1..], BarPrefixElement::SectionMarker(s.clone())))
-        },
+        }
         Some(Token::NumberedEnding(s)) => {
             Ok((&input[1..], BarPrefixElement::NumberedEnding(s.clone())))
-        },
+        }
         _ => Err(nom::Err::Error(nom::error::Error::new(
             input,
             nom::error::ErrorKind::Tag,
@@ -181,14 +181,15 @@ fn simple_bar(input: &[Token]) -> IResult<&[Token], SimpleBar> {
                     // TODO: Here we need to deal with putting counts in the right place.
                     chords
                         .into_iter()
-                        .flat_map(|(c, w)| {
-                            match w {
-                                Width::Narrow => vec![CountElement::Chord(c, vec![])],
-                                Width::Wide => {
-                                    vec![CountElement::Chord(c, vec![]), CountElement::None]
-                                },
-                                Width::Unknown => panic!("At this stage chord width should be know for chord: {:?}", c),
+                        .flat_map(|(c, w)| match w {
+                            Width::Narrow => vec![CountElement::Chord(c, vec![])],
+                            Width::Wide => {
+                                vec![CountElement::Chord(c, vec![]), CountElement::None]
                             }
+                            Width::Unknown => panic!(
+                                "At this stage chord width should be know for chord: {:?}",
+                                c
+                            ),
                         })
                         .collect(),
                 )
