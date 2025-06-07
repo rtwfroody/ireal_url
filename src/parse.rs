@@ -99,24 +99,16 @@ impl fmt::Display for BarElement {
 }
 
 fn token<'a>(expected: Token) -> impl Fn(&'a [Token]) -> IResult<&'a [Token], Token> {
-    move |input: &'a [Token]| {
-        match input.split_first() {
-            None => {
-                Err(nom::Err::Error(nom::error::Error::new(
-                    input,
-                    nom::error::ErrorKind::Tag,
-                )))
-            },
-            Some((tok, _)) if tok == &expected => {
-                Ok((&input[1..], tok.clone()))
-            },
-            _ => {
-                Err(nom::Err::Error(nom::error::Error::new(
-                    input,
-                    nom::error::ErrorKind::Tag,
-                )))
-            }
-        }
+    move |input: &'a [Token]| match input.split_first() {
+        None => Err(nom::Err::Error(nom::error::Error::new(
+            input,
+            nom::error::ErrorKind::Tag,
+        ))),
+        Some((tok, _)) if tok == &expected => Ok((&input[1..], tok.clone())),
+        _ => Err(nom::Err::Error(nom::error::Error::new(
+            input,
+            nom::error::ErrorKind::Tag,
+        ))),
     }
 }
 
@@ -194,7 +186,9 @@ fn simple_bar(input: &[Token]) -> IResult<&[Token], SimpleBar> {
     let (remainder, (prefixes, simple_bar_content, repeat_end, end)) = tuple((
         many0(alt((
             map(token(Token::RepeatStart), |_| BarPrefixElement::RepeatStart),
-            map(token(Token::DoubleBarStart), |_| BarPrefixElement::DoubleBarStart),
+            map(token(Token::DoubleBarStart), |_| {
+                BarPrefixElement::DoubleBarStart
+            }),
             marker,
             time_signature,
         ))),
@@ -253,7 +247,7 @@ fn simple_bar(input: &[Token]) -> IResult<&[Token], SimpleBar> {
                     top: *top,
                     bottom: *bottom,
                 });
-            },
+            }
             BarPrefixElement::DoubleBarStart => {
                 simple_bar.double_start = true;
             }
