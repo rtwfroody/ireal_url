@@ -9,7 +9,7 @@ use nom::{
 };
 
 use crate::{
-    tokenize::{self, Token},
+    tokenize::{self, Token, Width},
     types::Chord,
 };
 
@@ -17,16 +17,16 @@ use crate::{
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Bar {
     pub repeat_start: bool,
-    pub section_marker: Option<String>,
+    pub markers: Vec<Marker>,
     pub counts: Vec<CountElement>,
 }
 
 impl Bar {
     pub fn new(count_count: usize) -> Self {
-        let counts = vec![CountElement::None; count_count as usize];
+        let counts = vec![CountElement::None; count_count];
         Bar {
             repeat_start: false,
-            section_marker: None,
+            markers: vec![],
             counts: counts,
         }
     }
@@ -35,7 +35,7 @@ impl Bar {
         let counts: Vec<_> = counts.to_vec();
         Bar {
             repeat_start: false,
-            section_marker: None,
+            markers: vec![],
             counts,
         }
     }
@@ -104,14 +104,18 @@ fn token<'a>(expected: Token) -> impl Fn(&'a [Token]) -> IResult<&'a [Token], To
 enum BarPrefixElement {
     RepeatStart,
     SectionMarker(String),
+    NumberedEnding(String),
     TimeSignature(u32, u32),
 }
 
-fn section_marker(input: &[Token]) -> IResult<&[Token], BarPrefixElement> {
+fn marker(input: &[Token]) -> IResult<&[Token], BarPrefixElement> {
     match input.first() {
         Some(Token::SectionMarker(s)) => {
             Ok((&input[1..], BarPrefixElement::SectionMarker(s.clone())))
-        }
+        },
+        Some(Token::NumberedEnding(s)) => {
+            Ok((&input[1..], BarPrefixElement::NumberedEnding(s.clone())))
+        },
         _ => Err(nom::Err::Error(nom::error::Error::new(
             input,
             nom::error::ErrorKind::Tag,
@@ -131,9 +135,9 @@ fn time_signature(input: &[Token]) -> IResult<&[Token], BarPrefixElement> {
     }
 }
 
-fn chord(input: &[Token]) -> IResult<&[Token], Chord> {
+fn chord(input: &[Token]) -> IResult<&[Token], (Chord, Width)> {
     match input.first() {
-        Some(Token::Chord(c)) => Ok((&input[1..], c.clone())),
+        Some(Token::Chord(c, w)) => Ok((&input[1..], (c.clone(), w.clone()))),
         _ => Err(nom::Err::Error(nom::error::Error::new(
             input,
             nom::error::ErrorKind::Tag,
@@ -146,10 +150,16 @@ enum SimpleBarContent {
     Counts(Vec<CountElement>),
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Marker {
+    SectionMarker(String),
+    NumberedEnding(String),
+}
+
 /** A simple bar is basically what a bar looks like on the page. */
 struct SimpleBar {
     repeat_start: bool,
-    section_marker: Option<String>,
+    markers: Vec<Marker>,
     time_signature: Option<TimeSignature>,
     content: SimpleBarContent,
 }
@@ -159,7 +169,7 @@ fn simple_bar(input: &[Token]) -> IResult<&[Token], SimpleBar> {
     let (remainder, (prefixes, simple_bar_content, end)) = tuple((
         many0(alt((
             map(token(Token::RepeatStart), |_| BarPrefixElement::RepeatStart),
-            section_marker,
+            marker,
             time_signature,
         ))),
         alt((
@@ -171,7 +181,15 @@ fn simple_bar(input: &[Token]) -> IResult<&[Token], SimpleBar> {
                     // TODO: Here we need to deal with putting counts in the right place.
                     chords
                         .into_iter()
-                        .map(|c| CountElement::Chord(c, vec![]))
+                        .flat_map(|(c, w)| {
+                            match w {
+                                Width::Narrow => vec![CountElement::Chord(c, vec![])],
+                                Width::Wide => {
+                                    vec![CountElement::Chord(c, vec![]), CountElement::None]
+                                },
+                                Width::Unknown => panic!("At this stage chord width should be know for chord: {:?}", c),
+                            }
+                        })
                         .collect(),
                 )
             }),
@@ -181,7 +199,7 @@ fn simple_bar(input: &[Token]) -> IResult<&[Token], SimpleBar> {
     .unwrap();
     let mut simple_bar = SimpleBar {
         repeat_start: false,
-        section_marker: None,
+        markers: vec![],
         time_signature: None,
         content: simple_bar_content,
     };
@@ -191,7 +209,10 @@ fn simple_bar(input: &[Token]) -> IResult<&[Token], SimpleBar> {
                 simple_bar.repeat_start = true;
             }
             BarPrefixElement::SectionMarker(s) => {
-                simple_bar.section_marker = Some(s.clone());
+                simple_bar.markers.push(Marker::SectionMarker(s.clone()));
+            }
+            BarPrefixElement::NumberedEnding(s) => {
+                simple_bar.markers.push(Marker::NumberedEnding(s.clone()));
             }
             BarPrefixElement::TimeSignature(top, bottom) => {
                 simple_bar.time_signature = Some(TimeSignature {
@@ -205,16 +226,33 @@ fn simple_bar(input: &[Token]) -> IResult<&[Token], SimpleBar> {
 }
 
 fn simplify(input: &[Token]) -> Vec<Token> {
-    input
-        .iter()
-        // Remove all spacer tokens
-        .filter(|t| !matches!(t, Token::Blank | Token::Space | Token::Comma))
-        // Replace BarAndRepeat with Bar and RepeatMeasure
-        .flat_map(|t| match t {
-            Token::BarAndRepeat => vec![Token::Bar, Token::RepeatMeasure],
-            _ => vec![t.clone()],
-        })
-        .collect()
+    let mut output = vec![];
+    let mut width = Width::Wide;
+    for token in input.iter() {
+        match token {
+            // Remove all spacer tokens
+            Token::Blank | Token::Space | Token::Comma => continue,
+            // Replace BarAndRepeat with Bar and RepeatMeasure
+            Token::BarAndRepeat => {
+                output.push(Token::Bar);
+                output.push(Token::RepeatMeasure);
+            }
+            // Turn Chords into wide/narrow chords based on Squeeze and Unsqueeze tokens.
+            Token::Squeeze => {
+                width = Width::Narrow;
+            }
+            Token::Unsqueeze => {
+                width = Width::Wide;
+            }
+            Token::Chord(c, _) => {
+                output.push(Token::Chord(c.clone(), width.clone()));
+            }
+            _ => {
+                output.push(token.clone());
+            }
+        }
+    }
+    output
 }
 
 pub fn parse_music(text: &str) -> Result<Music, String> {
@@ -238,7 +276,7 @@ pub fn parse_music(text: &str) -> Result<Music, String> {
 
         let bar = Bar {
             repeat_start: simple_bar.repeat_start,
-            section_marker: simple_bar.section_marker,
+            markers: simple_bar.markers.clone(),
             counts,
         };
 

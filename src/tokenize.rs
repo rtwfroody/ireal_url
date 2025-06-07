@@ -18,11 +18,18 @@ use crate::types::Note;
 use crate::types::Number;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum Width {
+    Wide,
+    Narrow,
+    Unknown
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Token {
     AlternateChord(Chord), // These show up above the regular music.
     Bar,
     Blank,
-    Chord(Chord),
+    Chord(Chord, Width),
     Coda,
     Comment(String), // There is some stuff inside the comment that we could probably parse.
     DoubleBarEnd,
@@ -178,14 +185,14 @@ fn chord<'a>() -> impl FnMut(&'a str) -> IResult<&'a str, Chord> {
 
 fn chord_token<'a>() -> impl FnMut(&'a str) -> IResult<&'a str, Token> {
     alt((
-        map(tag("n"), |_| Token::Chord(Chord::NC)),
+        map(tag("n"), |_| Token::Chord(Chord::NC, Width::Unknown)),
         map(tuple((note(), flavor(), altered_notes(), over())), |x| {
             Token::Chord(Chord::Some {
                 root: x.0,
                 flavor: x.1,
                 altered_notes: x.2,
                 bass_note: x.3,
-            })
+            }, Width::Unknown)
         }),
     ))
 }
