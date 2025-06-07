@@ -2,7 +2,7 @@ use std::{fmt, vec};
 
 use nom::{
     branch::alt,
-    combinator::{all_consuming, map},
+    combinator::{all_consuming, map, opt},
     multi::many0,
     sequence::tuple,
     IResult,
@@ -16,7 +16,12 @@ use crate::{
 /* The chords that are playing in each bar. */
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Bar {
+    // There's a double bar at the start of the bar.
+    double_start: bool,
+    // There's a double bar at the end of the bar.
+    double_end: bool,
     pub repeat_start: bool,
+    pub repeat_end: bool,
     pub markers: Vec<Marker>,
     pub counts: Vec<CountElement>,
 }
@@ -25,7 +30,10 @@ impl Bar {
     pub fn new(count_count: usize) -> Self {
         let counts = vec![CountElement::None; count_count];
         Bar {
+            double_start: false,
+            double_end: false,
             repeat_start: false,
+            repeat_end: false,
             markers: vec![],
             counts: counts,
         }
@@ -34,7 +42,10 @@ impl Bar {
     pub fn from_counts(counts: Vec<CountElement>) -> Self {
         let counts: Vec<_> = counts.to_vec();
         Bar {
+            double_start: false,
+            double_end: false,
             repeat_start: false,
+            repeat_end: false,
             markers: vec![],
             counts,
         }
@@ -158,7 +169,12 @@ pub enum Marker {
 
 /** A simple bar is basically what a bar looks like on the page. */
 struct SimpleBar {
+    // There's a double bar at the start of the bar.
+    double_start: bool,
+    // There's a double bar at the end of the bar.
+    double_end: bool,
     repeat_start: bool,
+    repeat_end: bool,
     markers: Vec<Marker>,
     time_signature: Option<TimeSignature>,
     content: SimpleBarContent,
@@ -166,7 +182,8 @@ struct SimpleBar {
 
 fn simple_bar(input: &[Token]) -> IResult<&[Token], SimpleBar> {
     // A simple bar is one or more chords.
-    let (remainder, (prefixes, simple_bar_content, end)) = tuple((
+    let (remainder, (start, prefixes, simple_bar_content, repeat_end, end)) = tuple((
+        opt(token(Token::DoubleBarStart)),
         many0(alt((
             map(token(Token::RepeatStart), |_| BarPrefixElement::RepeatStart),
             marker,
@@ -195,11 +212,18 @@ fn simple_bar(input: &[Token]) -> IResult<&[Token], SimpleBar> {
                 )
             }),
         )),
-        token(Token::Bar),
+        opt(token(Token::RepeatEnd)),
+        alt((
+            token(Token::DoubleBarEnd),
+            token(Token::Bar),
+        )),
     ))(input)
     .unwrap();
     let mut simple_bar = SimpleBar {
+        double_start: start.is_some(),
+        double_end: end == Token::DoubleBarEnd,
         repeat_start: false,
+        repeat_end: repeat_end.is_some(),
         markers: vec![],
         time_signature: None,
         content: simple_bar_content,
@@ -276,7 +300,10 @@ pub fn parse_music(text: &str) -> Result<Music, String> {
         };
 
         let bar = Bar {
+            double_start: simple_bar.double_start,
+            double_end: simple_bar.double_end,
             repeat_start: simple_bar.repeat_start,
+            repeat_end: simple_bar.repeat_end,
             markers: simple_bar.markers.clone(),
             counts,
         };
