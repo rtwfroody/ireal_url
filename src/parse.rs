@@ -272,6 +272,7 @@ impl fmt::Display for WrittenBar {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "|")?;
         if self.double_start {
+            // TODO: If we ended the previous bar on a double bar, we should not write this.
             write!(f, "|")?;
         }
         if self.repeat_start {
@@ -297,11 +298,14 @@ impl fmt::Display for WrittenBar {
                     }
                 }
                 WrittenElement::NumberedEnding(n) => write!(f, "N{}", n)?,
-                WrittenElement::RepeatMeasure => write!(f, "            %           ")?,
+                WrittenElement::RepeatMeasure => {
+                    write!(f, "            %           ")?;
+                    count += 4; // TODO: Time signature
+                },
             }
         }
         // TODO: Take time signature into account
-        while (count < 4) {
+        while count < 4 {
             write!(f, "      ")?;
             count += 1;
         }
@@ -366,6 +370,8 @@ pub fn parse_music(text: &str) -> Result<Music, String> {
             },
             Token::DoubleBarEnd => {
                 written_bar.double_end = true;
+                written_bars.push(written_bar);
+                written_bar = WrittenBar::new();
             },
             Token::BarAndRepeat => {
                 written_bars.push(written_bar);
