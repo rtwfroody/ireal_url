@@ -1,5 +1,17 @@
 use std::fmt;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TimeSignature {
+    pub top: u32,
+    pub bottom: u32,
+}
+
+impl fmt::Display for TimeSignature {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}/{}", self.top, self.bottom)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Note {
     AFlat,
@@ -210,7 +222,7 @@ impl fmt::Display for AlteredNotes {
             AlteredNotes::Add(n) => format!("add{}", n),
             AlteredNotes::Sus => "sus".to_string(),
             AlteredNotes::Alt => "alt".to_string(),
-            AlteredNotes::Custom(s) => format!("{}", s),
+            AlteredNotes::Custom(s) => s.to_string(),
         }
         .fmt(f)
     }

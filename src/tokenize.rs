@@ -261,6 +261,5 @@ fn tokens(input: &str) -> IResult<&str, Vec<Token>> {
 }
 
 pub fn tokenize(input: &str) -> Result<Vec<Token>, String> {
-    let result = all_consuming(tokens)(&input).unwrap().1;
-    Ok(result)
+    Ok(all_consuming(tokens)(input).unwrap().1)
 }

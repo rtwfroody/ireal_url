@@ -1,83 +1,10 @@
 use std::{fmt, vec};
 
-use nom::{
-    branch::alt,
-    combinator::{all_consuming, map, opt},
-    multi::many0,
-    sequence::tuple,
-    IResult,
-};
-
 use crate::{
     tokenize::{self, Token, Width},
-    types::Chord,
+    types::{Chord, TimeSignature},
 };
 
-/* The chords that are playing in each bar. */
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Bar {
-    // There's a double bar at the start of the bar.
-    double_start: bool,
-    // There's a double bar at the end of the bar.
-    double_end: bool,
-    pub repeat_start: bool,
-    pub repeat_end: bool,
-    pub markers: Vec<Marker>,
-    pub counts: Vec<CountElement>,
-}
-
-impl Bar {
-    pub fn new(count_count: usize) -> Self {
-        let counts = vec![CountElement::None; count_count];
-        Bar {
-            double_start: false,
-            double_end: false,
-            repeat_start: false,
-            repeat_end: false,
-            markers: vec![],
-            counts: counts,
-        }
-    }
-
-    pub fn from_counts(counts: Vec<CountElement>) -> Self {
-        let counts: Vec<_> = counts.to_vec();
-        Bar {
-            double_start: false,
-            double_end: false,
-            repeat_start: false,
-            repeat_end: false,
-            markers: vec![],
-            counts,
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TimeSignature {
-    pub top: u32,
-    pub bottom: u32,
-}
-
-impl fmt::Display for TimeSignature {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}/{}", self.top, self.bottom)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum BarElement {
-    SectionMarker(String),
-    TimeSignature(TimeSignature),
-    // TODO: Chord(Chord, Vec<Chord>), // Chord and any alternate chords
-    Chord(Chord),
-    AlternateChord(Chord),
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum CountElement {
-    None,
-    Chord(Chord, Vec<Chord>), // Chord and any alternate chords
-}
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Music {
     pub raw: String,
@@ -95,138 +22,6 @@ impl fmt::Display for Music {
         writeln!(f, "|")?;
         Ok(())
     }
-}
-
-impl fmt::Display for BarElement {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            BarElement::SectionMarker(s) => s.fmt(f),
-            BarElement::TimeSignature(ts) => ts.fmt(f),
-            BarElement::Chord(c) => c.fmt(f),
-            BarElement::AlternateChord(c) => {
-                write!(f, "({})", c)
-            }
-        }
-    }
-}
-
-fn token<'a>(expected: Token) -> impl Fn(&'a [Token]) -> IResult<&'a [Token], Token> {
-    move |input: &'a [Token]| match input.split_first() {
-        Some((tok, _)) if tok == &expected => Ok((&input[1..], tok.clone())),
-        _ => Err(nom::Err::Error(nom::error::Error::new(
-            input,
-            nom::error::ErrorKind::Tag,
-        ))),
-    }
-}
-
-fn non_consuming_token<'a>(expected: Token) -> impl Fn(&'a [Token]) -> IResult<&'a [Token], Token> {
-    move |input: &'a [Token]| match input.first() {
-        Some(tok) if tok == &expected => Ok((input, tok.clone())),
-        _ => Err(nom::Err::Error(nom::error::Error::new(
-            input,
-            nom::error::ErrorKind::Tag,
-        ))),
-    }
-}
-
-enum BarPrefixElement {
-    RepeatStart,
-    SectionMarker(String),
-    NumberedEnding(u32),
-    TimeSignature(u32, u32),
-    DoubleBarStart,
-}
-
-fn marker(input: &[Token]) -> IResult<&[Token], BarPrefixElement> {
-    match input.first() {
-        Some(Token::SectionMarker(s)) => {
-            Ok((&input[1..], BarPrefixElement::SectionMarker(s.clone())))
-        }
-        Some(Token::NumberedEnding(s)) => {
-            Ok((&input[1..], BarPrefixElement::NumberedEnding(s.clone())))
-        }
-        _ => Err(nom::Err::Error(nom::error::Error::new(
-            input,
-            nom::error::ErrorKind::Tag,
-        ))),
-    }
-}
-
-fn time_signature(input: &[Token]) -> IResult<&[Token], BarPrefixElement> {
-    match input.first() {
-        Some(Token::TimeSignature(top, bottom)) => {
-            Ok((&input[1..], BarPrefixElement::TimeSignature(*top, *bottom)))
-        }
-        _ => Err(nom::Err::Error(nom::error::Error::new(
-            input,
-            nom::error::ErrorKind::Tag,
-        ))),
-    }
-}
-
-fn chord(input: &[Token]) -> IResult<&[Token], Chord> {
-    match input.first() {
-        Some(Token::Chord(c)) => Ok((&input[1..], c.clone())),
-        _ => Err(nom::Err::Error(nom::error::Error::new(
-            input,
-            nom::error::ErrorKind::Tag,
-        ))),
-    }
-}
-
-enum SimpleBarContent {
-    RepeatMeasure,
-    Counts(Vec<CountElement>),
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Marker {
-    SectionMarker(String),
-    NumberedEnding(u32),
-}
-
-/** A simple bar is basically what a bar looks like on the page. */
-struct SimpleBar {
-    // There's a double bar at the start of the bar.
-    double_start: bool,
-    // There's a double bar at the end of the bar.
-    double_end: bool,
-    repeat_start: bool,
-    repeat_end: bool,
-    markers: Vec<Marker>,
-    time_signature: Option<TimeSignature>,
-    content: SimpleBarContent,
-}
-
-fn simplify(input: &[Token]) -> Vec<Token> {
-    let mut output = vec![];
-    let mut width = Width::Wide;
-    for token in input.iter() {
-        match token {
-            // Remove all spacer tokens
-            Token::Blank | Token::Space | Token::Comma => continue,
-            // Replace BarAndRepeat with Bar and RepeatMeasure
-            Token::BarAndRepeat => {
-                output.push(Token::Bar);
-                output.push(Token::RepeatMeasure);
-            }
-            // Turn Chords into wide/narrow chords based on Squeeze and Unsqueeze tokens.
-            Token::Squeeze => {
-                width = Width::Narrow;
-            }
-            Token::Unsqueeze => {
-                width = Width::Wide;
-            }
-            Token::Chord(c) => {
-                output.push(Token::Chord(c.clone()));
-            }
-            _ => {
-                output.push(token.clone());
-            }
-        }
-    }
-    output
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -280,6 +75,12 @@ impl WrittenBar {
 
     pub fn is_empty(&self) -> bool {
         self.elements.is_empty() && !self.repeat_start && !self.repeat_end
+    }
+}
+
+impl Default for WrittenBar {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -365,7 +166,7 @@ pub fn parse_music(text: &str) -> Result<Music, String> {
     println!("Tokens: {:?}", tokens);
 
     let mut written_bars = vec![];
-    let mut written_bar = WrittenBar::new();
+    let mut written_bar: WrittenBar = Default::default();
     let mut width = Width::Wide;
     for token in tokens.iter() {
         match token {
@@ -375,7 +176,7 @@ pub fn parse_music(text: &str) -> Result<Music, String> {
             Token::RepeatEnd => {
                 written_bar.repeat_end = true;
                 written_bars.push(written_bar);
-                written_bar = WrittenBar::new();
+                written_bar = Default::default();
             }
             Token::SectionMarker(s) => {
                 written_bar
@@ -402,7 +203,7 @@ pub fn parse_music(text: &str) -> Result<Music, String> {
                 if !written_bar.is_empty() {
                     written_bars.push(written_bar);
                 }
-                written_bar = WrittenBar::new();
+                written_bar = Default::default();
             }
             Token::Squeeze => {
                 width = Width::Narrow;
@@ -421,7 +222,7 @@ pub fn parse_music(text: &str) -> Result<Music, String> {
             Token::DoubleBarEnd => {
                 written_bar.double_end = true;
                 written_bars.push(written_bar);
-                written_bar = WrittenBar::new();
+                written_bar = Default::default();
             }
             Token::BarAndRepeat => {
                 written_bars.push(written_bar);
@@ -431,7 +232,7 @@ pub fn parse_music(text: &str) -> Result<Music, String> {
                 // Final bar, but there may be a coda after this.
                 written_bar.final_bar = true;
                 written_bars.push(written_bar);
-                written_bar = WrittenBar::new();
+                written_bar = Default::default();
             }
             Token::Coda => {
                 written_bar.elements.push(WrittenElement::Coda);
@@ -464,7 +265,6 @@ pub fn parse_music(text: &str) -> Result<Music, String> {
             Token::EndingMeasure => {
                 println!("Ending measure found, but not implemented yet.");
             }
-            _ => panic!("Unexpected token: {:?}", token),
         }
     }
     if !written_bar.is_empty() {

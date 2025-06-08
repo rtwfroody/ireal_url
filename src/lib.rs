@@ -199,7 +199,6 @@ pub fn parse_url(mut text: &str) -> Result<Collection, String> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        parse::{Bar, CountElement},
         types::{AlteredNotes, Chord, Flavor, Note, Number},
     };
 
