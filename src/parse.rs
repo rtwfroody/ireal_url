@@ -434,14 +434,10 @@ pub fn parse_music(text: &str) -> Result<Music, String> {
                 written_bar = WrittenBar::new();
             }
             Token::Coda => {
-                written_bar
-                    .elements
-                    .push(WrittenElement::Coda);
+                written_bar.elements.push(WrittenElement::Coda);
             }
             Token::Segno => {
-                written_bar
-                    .elements
-                    .push(WrittenElement::Segno);
+                written_bar.elements.push(WrittenElement::Segno);
             }
             Token::Comment(s) => {
                 written_bar
@@ -454,24 +450,16 @@ pub fn parse_music(text: &str) -> Result<Music, String> {
                     .push(WrittenElement::AlternateChord(c.clone()));
             }
             Token::RepeatMeasure => {
-                written_bar
-                    .elements
-                    .push(WrittenElement::RepeatMeasure);
+                written_bar.elements.push(WrittenElement::RepeatMeasure);
             }
             Token::RepeatTwoMeasures => {
-                written_bar
-                    .elements
-                    .push(WrittenElement::RepeatTwoMeasures);
+                written_bar.elements.push(WrittenElement::RepeatTwoMeasures);
             }
             Token::PauseSlash => {
-                written_bar
-                    .elements
-                    .push(WrittenElement::PauseSlash);
+                written_bar.elements.push(WrittenElement::PauseSlash);
             }
             Token::Fermata => {
-                written_bar
-                    .elements
-                    .push(WrittenElement::Fermata);
+                written_bar.elements.push(WrittenElement::Fermata);
             }
             Token::EndingMeasure => {
                 println!("Ending measure found, but not implemented yet.");

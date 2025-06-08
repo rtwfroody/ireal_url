@@ -257,5 +257,10 @@ fn tokens(input: &str) -> IResult<&str, Vec<Token>> {
 }
 
 pub fn tokenize(input: &str) -> Result<Vec<Token>, String> {
-    Ok(all_consuming(tokens)(input).unwrap().1)
+    // Crosscurrent contains this bad syntax: C*7us*, which should be C7sus (I'm
+    // pretty sure). Do that replacement here.
+    let input = input.replace("C*7us*", "C7sus");
+
+    let result = all_consuming(tokens)(&input).unwrap().1;
+    Ok(result)
 }
