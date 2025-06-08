@@ -301,7 +301,7 @@ impl fmt::Display for WrittenBar {
                 WrittenElement::RepeatMeasure => {
                     write!(f, "            %           ")?;
                     count += 4; // TODO: Time signature
-                },
+                }
             }
         }
         // TODO: Take time signature into account
@@ -333,54 +333,62 @@ pub fn parse_music(text: &str) -> Result<Music, String> {
         match token {
             Token::RepeatStart => {
                 written_bar.repeat_start = true;
-            },
+            }
             Token::RepeatEnd => {
                 written_bar.repeat_end = true;
-            },
+            }
             Token::SectionMarker(s) => {
-                written_bar.elements.push(WrittenElement::SectionMarker(s.clone()));
-            },
+                written_bar
+                    .elements
+                    .push(WrittenElement::SectionMarker(s.clone()));
+            }
             Token::TimeSignature(top, bottom) => {
-                written_bar.elements.push(WrittenElement::TimeSignature(TimeSignature {
-                    top: *top,
-                    bottom: *bottom,
-                }));
-            },
+                written_bar
+                    .elements
+                    .push(WrittenElement::TimeSignature(TimeSignature {
+                        top: *top,
+                        bottom: *bottom,
+                    }));
+            }
             Token::Chord(c) => {
-                written_bar.elements.push(WrittenElement::Chord(c.clone(), width.clone()));
-            },
+                written_bar
+                    .elements
+                    .push(WrittenElement::Chord(c.clone(), width.clone()));
+            }
             Token::Comma | Token::Space | Token::Blank => {
                 // Ignore these tokens
-            },
+            }
             Token::Bar => {
                 written_bars.push(written_bar);
                 written_bar = WrittenBar::new();
-            },
+            }
             Token::Squeeze => {
                 width = Width::Narrow;
-            },
+            }
             Token::Unsqueeze => {
                 width = Width::Wide;
-            },
+            }
             Token::NumberedEnding(n) => {
-                written_bar.elements.push(WrittenElement::NumberedEnding(*n));
-            },
+                written_bar
+                    .elements
+                    .push(WrittenElement::NumberedEnding(*n));
+            }
             Token::DoubleBarStart => {
                 written_bar.double_start = true;
-            },
+            }
             Token::DoubleBarEnd => {
                 written_bar.double_end = true;
                 written_bars.push(written_bar);
                 written_bar = WrittenBar::new();
-            },
+            }
             Token::BarAndRepeat => {
                 written_bars.push(written_bar);
                 written_bar = WrittenBar::repeat();
-            },
+            }
             Token::FinalBar => {
                 written_bars.push(written_bar);
                 break; // Final bar, stop processing
-            },
+            }
             _ => panic!("Unexpected token: {:?}", token),
         }
     }
