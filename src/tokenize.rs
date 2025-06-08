@@ -21,7 +21,6 @@ use crate::types::Number;
 pub enum Width {
     Wide,
     Narrow,
-    Unknown,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -29,14 +28,14 @@ pub enum Token {
     AlternateChord(Chord), // These show up above the regular music.
     Bar,
     Blank,
-    Chord(Chord, Width),
+    Chord(Chord),
     Coda,
     Comment(String), // There is some stuff inside the comment that we could probably parse.
     DoubleBarEnd,
     DoubleBarStart,
     EndingMeasure,
     FinalBar,
-    NumberedEnding(String),
+    NumberedEnding(u32),
     PauseSlash,
     RepeatEnd,
     RepeatMeasure,
@@ -66,7 +65,7 @@ fn section_marker<'a>() -> impl FnMut(&'a str) -> IResult<&'a str, Token> {
 
 fn numbered_ending<'a>() -> impl FnMut(&'a str) -> IResult<&'a str, Token> {
     map(tuple((tag("N"), take(1usize))), |x: (&str, &str)| {
-        Token::NumberedEnding(x.1.to_string())
+        Token::NumberedEnding(x.1.parse().unwrap())
     })
 }
 
@@ -185,17 +184,14 @@ fn chord<'a>() -> impl FnMut(&'a str) -> IResult<&'a str, Chord> {
 
 fn chord_token<'a>() -> impl FnMut(&'a str) -> IResult<&'a str, Token> {
     alt((
-        map(tag("n"), |_| Token::Chord(Chord::NC, Width::Unknown)),
+        map(tag("n"), |_| Token::Chord(Chord::NC)),
         map(tuple((note(), flavor(), altered_notes(), over())), |x| {
-            Token::Chord(
-                Chord::Some {
-                    root: x.0,
-                    flavor: x.1,
-                    altered_notes: x.2,
-                    bass_note: x.3,
-                },
-                Width::Unknown,
-            )
+            Token::Chord(Chord::Some {
+                root: x.0,
+                flavor: x.1,
+                altered_notes: x.2,
+                bass_note: x.3,
+            })
         }),
     ))
 }

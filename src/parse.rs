@@ -60,7 +60,7 @@ pub struct TimeSignature {
 
 impl fmt::Display for TimeSignature {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "T{}{}", self.top, self.bottom)
+        write!(f, "{}/{}", self.top, self.bottom)
     }
 }
 
@@ -80,9 +80,20 @@ pub enum CountElement {
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Music {
-    pub repeat_start: Option<usize>,
     pub raw: String,
-    pub bars: Vec<Bar>,
+    pub written_bars: Vec<WrittenBar>,
+}
+
+impl fmt::Display for Music {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        for (i, bar) in self.written_bars.iter().enumerate() {
+            if i % 4 == 0 && i > 0 {
+                writeln!(f, "|")?;
+            }
+            write!(f, "{}", bar)?;
+        }
+        Ok(())
+    }
 }
 
 impl fmt::Display for BarElement {
@@ -121,7 +132,7 @@ fn non_consuming_token<'a>(expected: Token) -> impl Fn(&'a [Token]) -> IResult<&
 enum BarPrefixElement {
     RepeatStart,
     SectionMarker(String),
-    NumberedEnding(String),
+    NumberedEnding(u32),
     TimeSignature(u32, u32),
     DoubleBarStart,
 }
@@ -153,9 +164,9 @@ fn time_signature(input: &[Token]) -> IResult<&[Token], BarPrefixElement> {
     }
 }
 
-fn chord(input: &[Token]) -> IResult<&[Token], (Chord, Width)> {
+fn chord(input: &[Token]) -> IResult<&[Token], Chord> {
     match input.first() {
-        Some(Token::Chord(c, w)) => Ok((&input[1..], (c.clone(), w.clone()))),
+        Some(Token::Chord(c)) => Ok((&input[1..], c.clone())),
         _ => Err(nom::Err::Error(nom::error::Error::new(
             input,
             nom::error::ErrorKind::Tag,
@@ -171,7 +182,7 @@ enum SimpleBarContent {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Marker {
     SectionMarker(String),
-    NumberedEnding(String),
+    NumberedEnding(u32),
 }
 
 /** A simple bar is basically what a bar looks like on the page. */
@@ -185,83 +196,6 @@ struct SimpleBar {
     markers: Vec<Marker>,
     time_signature: Option<TimeSignature>,
     content: SimpleBarContent,
-}
-
-fn simple_bar(input: &[Token]) -> IResult<&[Token], SimpleBar> {
-    // A simple bar is one or more chords.
-    let (remainder, (prefixes, simple_bar_content, repeat_end, end)) = tuple((
-        many0(alt((
-            map(token(Token::RepeatStart), |_| BarPrefixElement::RepeatStart),
-            map(token(Token::DoubleBarStart), |_| {
-                BarPrefixElement::DoubleBarStart
-            }),
-            marker,
-            time_signature,
-        ))),
-        alt((
-            map(token(Token::RepeatMeasure), |_| {
-                SimpleBarContent::RepeatMeasure
-            }),
-            map(many0(chord), |chords| {
-                SimpleBarContent::Counts(
-                    // TODO: Here we need to deal with putting counts in the right place.
-                    chords
-                        .into_iter()
-                        .flat_map(|(c, w)| match w {
-                            Width::Narrow => vec![CountElement::Chord(c, vec![])],
-                            Width::Wide => {
-                                vec![CountElement::Chord(c, vec![]), CountElement::None]
-                            }
-                            Width::Unknown => panic!(
-                                "At this stage chord width should be know for chord: {:?}",
-                                c
-                            ),
-                        })
-                        .collect(),
-                )
-            }),
-        )),
-        opt(token(Token::RepeatEnd)),
-        alt((
-            token(Token::DoubleBarEnd),
-            token(Token::Bar),
-            token(Token::FinalBar),
-            // 52nd Street Theme has a double bar start without a proper bar end token.
-            non_consuming_token(Token::DoubleBarStart),
-        )),
-    ))(input)?;
-    let mut simple_bar = SimpleBar {
-        double_start: false,
-        double_end: end == Token::DoubleBarEnd,
-        repeat_start: false,
-        repeat_end: repeat_end.is_some(),
-        markers: vec![],
-        time_signature: None,
-        content: simple_bar_content,
-    };
-    for prefix in prefixes.iter() {
-        match prefix {
-            BarPrefixElement::RepeatStart => {
-                simple_bar.repeat_start = true;
-            }
-            BarPrefixElement::SectionMarker(s) => {
-                simple_bar.markers.push(Marker::SectionMarker(s.clone()));
-            }
-            BarPrefixElement::NumberedEnding(s) => {
-                simple_bar.markers.push(Marker::NumberedEnding(s.clone()));
-            }
-            BarPrefixElement::TimeSignature(top, bottom) => {
-                simple_bar.time_signature = Some(TimeSignature {
-                    top: *top,
-                    bottom: *bottom,
-                });
-            }
-            BarPrefixElement::DoubleBarStart => {
-                simple_bar.double_start = true;
-            }
-        }
-    }
-    Ok((remainder, simple_bar))
 }
 
 fn simplify(input: &[Token]) -> Vec<Token> {
@@ -283,8 +217,8 @@ fn simplify(input: &[Token]) -> Vec<Token> {
             Token::Unsqueeze => {
                 width = Width::Wide;
             }
-            Token::Chord(c, _) => {
-                output.push(Token::Chord(c.clone(), width.clone()));
+            Token::Chord(c) => {
+                output.push(Token::Chord(c.clone()));
             }
             _ => {
                 output.push(token.clone());
@@ -294,40 +228,159 @@ fn simplify(input: &[Token]) -> Vec<Token> {
     output
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum WrittenElement {
+    SectionMarker(String),
+    TimeSignature(TimeSignature),
+    Chord(Chord, Width),
+    NumberedEnding(u32),
+    RepeatMeasure,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WrittenBar {
+    repeat_start: bool,
+    repeat_end: bool,
+    double_start: bool,
+    double_end: bool,
+    elements: Vec<WrittenElement>,
+}
+
+impl WrittenBar {
+    pub fn new() -> Self {
+        WrittenBar {
+            repeat_start: false,
+            repeat_end: false,
+            double_start: false,
+            double_end: false,
+            elements: vec![],
+        }
+    }
+
+    pub fn repeat() -> Self {
+        WrittenBar {
+            repeat_start: false,
+            repeat_end: false,
+            double_start: false,
+            double_end: false,
+            elements: vec![WrittenElement::RepeatMeasure],
+        }
+    }
+}
+
+impl fmt::Display for WrittenBar {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "|")?;
+        if self.double_start {
+            write!(f, "|")?;
+        }
+        if self.repeat_start {
+            write!(f, ":")?;
+        }
+        write!(f, " ")?;
+        let mut count = 0;
+        for (i, element) in self.elements.iter().enumerate() {
+            if i > 0 {
+                write!(f, " ")?;
+            }
+            match element {
+                WrittenElement::SectionMarker(s) => write!(f, "[{}]", s)?,
+                WrittenElement::TimeSignature(ts) => write!(f, "{}", ts)?,
+                WrittenElement::Chord(c, width) => {
+                    let s = c.to_string();
+                    if *width == Width::Narrow {
+                        write!(f, "{:>6}", s)?;
+                        count += 1;
+                    } else {
+                        write!(f, "{:>6}      ", s)?;
+                        count += 2;
+                    }
+                }
+                WrittenElement::NumberedEnding(n) => write!(f, "N{}", n)?,
+                WrittenElement::RepeatMeasure => write!(f, "            %           ")?,
+            }
+        }
+        // TODO: Take time signature into account
+        while (count < 4) {
+            write!(f, "      ")?;
+            count += 1;
+        }
+        if self.repeat_end {
+            write!(f, ":")?;
+        }
+        if self.double_end {
+            write!(f, "|")?;
+        }
+        // Assume there's a | for the next line
+        Ok(())
+    }
+}
+
 pub fn parse_music(text: &str) -> Result<Music, String> {
     // Remove blanks before parsing
     println!("Text: {}", text);
-    let tokens = simplify(tokenize::tokenize(text)?.as_slice());
+    let tokens = tokenize::tokenize(text)?;
     println!("Tokens: {:?}", tokens);
-    let simple_bars = all_consuming(many0(simple_bar))(&tokens).unwrap().1;
-    let mut bars = vec![];
-    let mut previous_bar: Option<Bar> = None;
-    let mut time_signature = TimeSignature { top: 4, bottom: 4 };
-    for simple_bar in simple_bars {
-        if let Some(ts) = simple_bar.time_signature {
-            time_signature = ts;
+
+    let mut written_bars = vec![];
+    let mut written_bar = WrittenBar::new();
+    let mut width = Width::Wide;
+    for token in tokens.iter() {
+        match token {
+            Token::RepeatStart => {
+                written_bar.repeat_start = true;
+            },
+            Token::RepeatEnd => {
+                written_bar.repeat_end = true;
+            },
+            Token::SectionMarker(s) => {
+                written_bar.elements.push(WrittenElement::SectionMarker(s.clone()));
+            },
+            Token::TimeSignature(top, bottom) => {
+                written_bar.elements.push(WrittenElement::TimeSignature(TimeSignature {
+                    top: *top,
+                    bottom: *bottom,
+                }));
+            },
+            Token::Chord(c) => {
+                written_bar.elements.push(WrittenElement::Chord(c.clone(), width.clone()));
+            },
+            Token::Comma | Token::Space | Token::Blank => {
+                // Ignore these tokens
+            },
+            Token::Bar => {
+                written_bars.push(written_bar);
+                written_bar = WrittenBar::new();
+            },
+            Token::Squeeze => {
+                width = Width::Narrow;
+            },
+            Token::Unsqueeze => {
+                width = Width::Wide;
+            },
+            Token::NumberedEnding(n) => {
+                written_bar.elements.push(WrittenElement::NumberedEnding(*n));
+            },
+            Token::DoubleBarStart => {
+                written_bar.double_start = true;
+            },
+            Token::DoubleBarEnd => {
+                written_bar.double_end = true;
+            },
+            Token::BarAndRepeat => {
+                written_bars.push(written_bar);
+                written_bar = WrittenBar::repeat();
+            },
+            Token::FinalBar => {
+                written_bars.push(written_bar);
+                break; // Final bar, stop processing
+            },
+            _ => panic!("Unexpected token: {:?}", token),
         }
-
-        let counts = match simple_bar.content {
-            SimpleBarContent::RepeatMeasure => previous_bar.unwrap().counts.clone(),
-            SimpleBarContent::Counts(chords) => chords,
-        };
-
-        let bar = Bar {
-            double_start: simple_bar.double_start,
-            double_end: simple_bar.double_end,
-            repeat_start: simple_bar.repeat_start,
-            repeat_end: simple_bar.repeat_end,
-            markers: simple_bar.markers.clone(),
-            counts,
-        };
-
-        bars.push(bar.clone());
-        previous_bar = Some(bar);
     }
+
     Ok(Music {
-        repeat_start: None,
-        bars,
+        written_bars,
         raw: text.to_string(),
     })
 }

@@ -137,7 +137,7 @@ impl Song {
         let parts: Vec<&str> = text.split("=").collect();
         println!();
         println!("Title: {}", parts[0]);
-        Song {
+        let song = Song {
             title: parts[0].to_string(),
             composer: parts[1].to_string(),
             style: parts[3].to_string(),
@@ -147,7 +147,9 @@ impl Song {
             comp_style: parts[7].to_string(),
             bpm: parts[8].parse().unwrap(),
             repeats: parts[9].to_string(),
-        }
+        };
+        println!("Music:\n{}", song.music);
+        song
     }
 
     // Just turn this into a sequence of Chords
