@@ -198,14 +198,9 @@ pub fn parse_url(mut text: &str) -> Result<Collection, String> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        types::{AlteredNotes, Chord, Flavor, Note, Number},
-    };
-
     use super::*;
     use pretty_assertions::assert_eq;
 
-    /*
     #[test]
     fn work() {
         let text = "irealb://Work=Monk%20Thelonious==Medium%20Swing=Db==1r34LbK\
@@ -215,172 +210,23 @@ mod tests {
                 cl%20Q%20ZY%7CQGXyQZ%20==0=0===";
         let result = parse_url(text).unwrap();
 
-        #[allow(non_snake_case)]
-        let Ab7b9s5 = CountElement::Chord(Chord::Some {
-            root: Note::AFlat,
-            flavor: Flavor::Dominant(Some(Number::Seven)),
-            altered_notes: vec![
-                AlteredNotes::Flat(Number::Nine),
-                AlteredNotes::Sharp(Number::Five),
-            ],
-            bass_note: None,
-        });
-
-        #[allow(non_snake_case)]
-        let A7 = CountElement::Chord(Chord::Some {
-            root: Note::A,
-            flavor: Flavor::Dominant(Some(Number::Seven)),
-            altered_notes: vec![],
-            bass_note: None,
-        });
-
-        #[allow(non_snake_case)]
-        let C7b5 = CountElement::Chord(Chord::Some {
-            root: Note::C,
-            flavor: Flavor::Dominant(Some(Number::Seven)),
-            altered_notes: vec![AlteredNotes::Flat(Number::Five)],
-            bass_note: None,
-        });
-
-        #[allow(non_snake_case)]
-        let Ch7 = CountElement::Chord(Chord::Some {
-            root: Note::C,
-            flavor: Flavor::HalfDiminished(Some(Number::Seven)),
-            altered_notes: vec![],
-            bass_note: None,
-        });
-
-        #[allow(non_snake_case)]
-        let Db7 = CountElement::Chord(Chord::Some {
-            root: Note::DFlat,
-            flavor: Flavor::Dominant(Some(Number::Seven)),
-            altered_notes: vec![],
-            bass_note: None,
-        });
-
-        #[allow(non_snake_case)]
-        let D7 = CountElement::Chord(Chord::Some {
-            root: Note::D,
-            flavor: Flavor::Dominant(Some(Number::Seven)),
-            altered_notes: vec![],
-            bass_note: None,
-        });
-
-        #[allow(non_snake_case)]
-        let D7sus = CountElement::Chord(Chord::Some {
-            root: Note::D,
-            flavor: Flavor::Dominant(Some(Number::Seven)),
-            altered_notes: vec![AlteredNotes::Sus],
-            bass_note: None,
-        });
-
-        #[allow(non_snake_case)]
-        let Eb7 = CountElement::Chord(Chord::Some {
-            root: Note::EFlat,
-            flavor: Flavor::Dominant(Some(Number::Seven)),
-            altered_notes: vec![],
-            bass_note: None,
-        });
-
-        #[allow(non_snake_case)]
-        let E7 = CountElement::Chord(Chord::Some {
-            root: Note::E,
-            flavor: Flavor::Dominant(Some(Number::Seven)),
-            altered_notes: vec![],
-            bass_note: None,
-        });
-
-        #[allow(non_snake_case)]
-        let F7 = CountElement::Chord(Chord::Some {
-            root: Note::F,
-            flavor: Flavor::Dominant(Some(Number::Seven)),
-            altered_notes: vec![],
-            bass_note: None,
-        });
-
-        #[allow(non_snake_case)]
-        let Gb7 = CountElement::Chord(Chord::Some {
-            root: Note::GFlat,
-            flavor: Flavor::Dominant(Some(Number::Seven)),
-            altered_notes: vec![],
-            bass_note: None,
-        });
-
-        #[allow(non_snake_case)]
-        let G = CountElement::Chord(Chord::Some {
-            root: Note::G,
-            flavor: Flavor::Dominant(None),
-            altered_notes: vec![],
-            bass_note: None,
-        });
-
-        #[allow(non_snake_case)]
-        let G7b5 = CountElement::Chord(Chord::Some {
-            root: Note::G,
-            flavor: Flavor::Dominant(Some(Number::Seven)),
-            altered_notes: vec![AlteredNotes::Flat(Number::Five)],
-            bass_note: None,
-        });
-
-        assert_eq!(
-            result,
-            Collection {
-                title: String::new(),
-                songs: vec![Song {
-                    title: "Work".to_string(),
-                    composer: "Monk Thelonious".to_string(),
-                    style: "Medium Swing".to_string(),
-                    key: "Db".to_string(),
-                    transpose: "".to_string(),
-                    music: Music {
-                        repeat_start: None,
-                        raw: "{*AT44Db7XyQKcl LZGb7XyQKcl LZF7 E7LZEb7XyQ|D7XyQKcl  }\
-                            [*BD7sus G7b5LZG7b5XyQ|C7b5XyQKcl LZCh7XyQ|F7XyQ|E7 A7LZAb7b9#5XyQ]\
-                            [*CDb7XyQKcl LZGb7XyQKcl LZF7 E7LZEb7XyQ|D7XyQKcl Q ZY|QGXyQZ "
-                            .to_string(),
-                        bars: vec![
-                            Bar::from_counts(&[vec![Db7.clone()], vec![], vec![], vec![]]),
-                            Bar::from_counts(&[vec![Db7.clone()], vec![], vec![], vec![]]),
-                            Bar::from_counts(&[vec![Gb7.clone()], vec![], vec![], vec![]]),
-                            Bar::from_counts(&[vec![Gb7.clone()], vec![], vec![], vec![]]),
-                            Bar::from_counts(&[vec![F7.clone()], vec![], vec![E7.clone()], vec![]]),
-                            Bar::from_counts(&[vec![Eb7.clone()], vec![], vec![], vec![]]),
-                            Bar::from_counts(&[vec![D7.clone()], vec![], vec![], vec![]]),
-                            Bar::from_counts(&[vec![D7.clone()], vec![], vec![], vec![]]),
-                            Bar::from_counts(&[
-                                vec![D7sus.clone()],
-                                vec![],
-                                vec![G7b5.clone()],
-                                vec![]
-                            ]),
-                            Bar::from_counts(&[vec![G7b5.clone()], vec![], vec![], vec![]]),
-                            Bar::from_counts(&[vec![C7b5.clone()], vec![], vec![], vec![]]),
-                            Bar::from_counts(&[vec![C7b5.clone()], vec![], vec![], vec![]]),
-                            Bar::from_counts(&[vec![Ch7.clone()], vec![], vec![], vec![]]),
-                            Bar::from_counts(&[vec![F7.clone()], vec![], vec![], vec![]]),
-                            Bar::from_counts(&[vec![E7.clone()], vec![], vec![A7.clone()], vec![]]),
-                            Bar::from_counts(&[vec![Ab7b9s5.clone()], vec![], vec![], vec![]]),
-                            Bar::from_counts(&[vec![Db7.clone()], vec![], vec![], vec![]]),
-                            Bar::from_counts(&[vec![Db7.clone()], vec![], vec![], vec![]]),
-                            Bar::from_counts(&[vec![Gb7.clone()], vec![], vec![], vec![]]),
-                            Bar::from_counts(&[vec![Gb7.clone()], vec![], vec![], vec![]]),
-                            Bar::from_counts(&[vec![F7.clone()], vec![], vec![E7.clone()], vec![]]),
-                            Bar::from_counts(&[vec![Eb7.clone()], vec![], vec![], vec![]]),
-                            Bar::from_counts(&[vec![D7.clone()], vec![], vec![], vec![]]),
-                            Bar::from_counts(&[vec![D7.clone()], vec![], vec![], vec![]]),
-                            Bar::from_counts(&[vec![G.clone()], vec![], vec![], vec![]]),
-                        ]
-                    },
-                    comp_style: "".to_string(),
-                    bpm: 0,
-                    repeats: "0".to_string()
-                }]
-            }
-        );
+        assert_eq!(result.title, String::new());
+        let song = &result.songs[0];
+        assert_eq!(song.title, "Work".to_string());
+        assert_eq!(song.composer, "Monk Thelonious".to_string());
+        assert_eq!(song.style, "Medium Swing".to_string());
+        assert_eq!(song.key, "Db".to_string());
+        assert_eq!(format!("{}", song.music),
+"|: [A] 4/4    Db7                  |             %           |    Gb7                  |             %           |
+|     F7           E7      |    Eb7                  |     D7                  |             %           :|
+|| [B]  D7sus         G7b5      |   G7b5                  |   C7b5                  |             %           |
+|    Ch7                  |     F7                  |     E7           A7      | Ab7b9#5                  ||
+|| [C]    Db7                  |             %           |    Gb7                  |             %           |
+|     F7           E7      |    Eb7                  |     D7                  |             %            𝄌|
+| 𝄌      G                  |
+");
     }
-    */
 
-    // TODO: Make pass
     #[test]
     fn all_jazz() {
         use std::fs;
