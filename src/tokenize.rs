@@ -158,6 +158,10 @@ fn altered_notes<'a>() -> impl FnMut(&'a str) -> IResult<&'a str, Vec<AlteredNot
         map(tuple((tag("add"), number())), |x| AlteredNotes::Add(x.1)),
         map(tag("sus"), |_| AlteredNotes::Sus),
         map(tag("alt"), |_| AlteredNotes::Alt),
+        map(
+            tuple((tag("*"), take_until("*"), tag("*"))),
+            |x: (&str, &str, &str)| AlteredNotes::Custom(x.1.to_string()),
+        )
     )))
 }
 
@@ -257,10 +261,6 @@ fn tokens(input: &str) -> IResult<&str, Vec<Token>> {
 }
 
 pub fn tokenize(input: &str) -> Result<Vec<Token>, String> {
-    // Crosscurrent contains this bad syntax: C*7us*, which should be C7sus (I'm
-    // pretty sure). Do that replacement here.
-    let input = input.replace("C*7us*", "C7sus");
-
     let result = all_consuming(tokens)(&input).unwrap().1;
     Ok(result)
 }

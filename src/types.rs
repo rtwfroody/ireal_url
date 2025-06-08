@@ -199,6 +199,7 @@ pub enum AlteredNotes {
     Add(Number),
     Sus,
     Alt,
+    Custom(String),
 }
 
 impl fmt::Display for AlteredNotes {
@@ -209,6 +210,7 @@ impl fmt::Display for AlteredNotes {
             AlteredNotes::Add(n) => format!("add{}", n),
             AlteredNotes::Sus => "sus".to_string(),
             AlteredNotes::Alt => "alt".to_string(),
+            AlteredNotes::Custom(s) => format!("{}", s),
         }
         .fmt(f)
     }
