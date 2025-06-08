@@ -92,6 +92,7 @@ impl fmt::Display for Music {
             }
             write!(f, "{}", bar)?;
         }
+        writeln!(f, "|")?;
         Ok(())
     }
 }
@@ -235,6 +236,13 @@ pub enum WrittenElement {
     Chord(Chord, Width),
     NumberedEnding(u32),
     RepeatMeasure,
+    RepeatTwoMeasures, // This is a special case because it takes 2 measures.
+    Coda,
+    Segno,
+    Comment(String),
+    AlternateChord(Chord),
+    PauseSlash,
+    Fermata,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -243,6 +251,7 @@ pub struct WrittenBar {
     repeat_end: bool,
     double_start: bool,
     double_end: bool,
+    final_bar: bool,
     elements: Vec<WrittenElement>,
 }
 
@@ -253,6 +262,7 @@ impl WrittenBar {
             repeat_end: false,
             double_start: false,
             double_end: false,
+            final_bar: false,
             elements: vec![],
         }
     }
@@ -263,8 +273,13 @@ impl WrittenBar {
             repeat_end: false,
             double_start: false,
             double_end: false,
+            final_bar: false,
             elements: vec![WrittenElement::RepeatMeasure],
         }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.elements.is_empty() && !self.repeat_start && !self.repeat_end
     }
 }
 
@@ -302,6 +317,29 @@ impl fmt::Display for WrittenBar {
                     write!(f, "            %           ")?;
                     count += 4; // TODO: Time signature
                 }
+                WrittenElement::RepeatTwoMeasures => {
+                    write!(f, "                       %|")?;
+                    write!(f, "%                       ")?;
+                    count += 4; // TODO: Time signature
+                }
+                WrittenElement::Coda => {
+                    write!(f, "𝄌")?;
+                }
+                WrittenElement::Segno => {
+                    write!(f, "𝄋")?;
+                }
+                WrittenElement::Comment(s) => {
+                    write!(f, " ({})", s)?;
+                }
+                WrittenElement::AlternateChord(c) => {
+                    write!(f, " ({})", c)?;
+                }
+                WrittenElement::PauseSlash => {
+                    write!(f, "{:>6}", "/")?;
+                }
+                WrittenElement::Fermata => {
+                    write!(f, "𝄐")?;
+                }
             }
         }
         // TODO: Take time signature into account
@@ -336,6 +374,8 @@ pub fn parse_music(text: &str) -> Result<Music, String> {
             }
             Token::RepeatEnd => {
                 written_bar.repeat_end = true;
+                written_bars.push(written_bar);
+                written_bar = WrittenBar::new();
             }
             Token::SectionMarker(s) => {
                 written_bar
@@ -355,11 +395,13 @@ pub fn parse_music(text: &str) -> Result<Music, String> {
                     .elements
                     .push(WrittenElement::Chord(c.clone(), width.clone()));
             }
-            Token::Comma | Token::Space | Token::Blank => {
+            Token::Comma | Token::Space | Token::Blank | Token::VerticalSpace => {
                 // Ignore these tokens
             }
             Token::Bar => {
-                written_bars.push(written_bar);
+                if !written_bar.is_empty() {
+                    written_bars.push(written_bar);
+                }
                 written_bar = WrittenBar::new();
             }
             Token::Squeeze => {
@@ -386,11 +428,59 @@ pub fn parse_music(text: &str) -> Result<Music, String> {
                 written_bar = WrittenBar::repeat();
             }
             Token::FinalBar => {
+                // Final bar, but there may be a coda after this.
+                written_bar.final_bar = true;
                 written_bars.push(written_bar);
-                break; // Final bar, stop processing
+                written_bar = WrittenBar::new();
+            }
+            Token::Coda => {
+                written_bar
+                    .elements
+                    .push(WrittenElement::Coda);
+            }
+            Token::Segno => {
+                written_bar
+                    .elements
+                    .push(WrittenElement::Segno);
+            }
+            Token::Comment(s) => {
+                written_bar
+                    .elements
+                    .push(WrittenElement::Comment(s.trim().into()));
+            }
+            Token::AlternateChord(c) => {
+                written_bar
+                    .elements
+                    .push(WrittenElement::AlternateChord(c.clone()));
+            }
+            Token::RepeatMeasure => {
+                written_bar
+                    .elements
+                    .push(WrittenElement::RepeatMeasure);
+            }
+            Token::RepeatTwoMeasures => {
+                written_bar
+                    .elements
+                    .push(WrittenElement::RepeatTwoMeasures);
+            }
+            Token::PauseSlash => {
+                written_bar
+                    .elements
+                    .push(WrittenElement::PauseSlash);
+            }
+            Token::Fermata => {
+                written_bar
+                    .elements
+                    .push(WrittenElement::Fermata);
+            }
+            Token::EndingMeasure => {
+                println!("Ending measure found, but not implemented yet.");
             }
             _ => panic!("Unexpected token: {:?}", token),
         }
+    }
+    if !written_bar.is_empty() {
+        written_bars.push(written_bar);
     }
 
     Ok(Music {
