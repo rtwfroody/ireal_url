@@ -161,7 +161,7 @@ fn altered_notes<'a>() -> impl FnMut(&'a str) -> IResult<&'a str, Vec<AlteredNot
         map(
             tuple((tag("*"), take_until("*"), tag("*"))),
             |x: (&str, &str, &str)| AlteredNotes::Custom(x.1.to_string()),
-        )
+        ),
     )))
 }
 
